@@ -84,7 +84,7 @@ How to use this tool
 
 1. git clone this repo:
 
-   .. code-block::bash
+   ::
    
       git clone https://github.com/ios-xr/iosxrv-x64-vbox.git
 
@@ -92,7 +92,7 @@ How to use this tool
 3. Download the appropriate ISO file, e.g. ``iosxrv-fullk9-x64.iso``
 4. Generate the VirtualBox box:
 
-   .. code-block::bash
+   ::
    
       ./iosxrv-x64-vbox/iosxr_iso2vbox.py -i iosxrv-fullk9-x64.iso
 
@@ -107,7 +107,7 @@ VirtualBox_, and Pexpect_:
 * Make sure you install version 5.x virtualbox
 * Vagrant latest version is: 1.8.2
 
-.. code-block::bash
+::
 
    /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
    brew cask install virtualbox
@@ -117,7 +117,7 @@ See also: http://sourabhbajaj.com/mac-setup/Vagrant/README.html
 
 You may need to install Pexpect too:
 
-.. code-block::bash
+::
 
    brew cask install python
    pip install pexpect
@@ -131,59 +131,53 @@ Once box is created - how do I run it?
 How to bring up a single node instance:
 '''''''''''''''''''''''''''''''''''''''
 
-   * Add the box to Vagrant and bring up the node:
-   
-     .. code-block::bash
+* Add the box to Vagrant and bring up the node:
+  ::
 
-        vagrant init 'IOS XRv'
-        vagrant box add --name 'IOS XRv' iosxrv-fullk9-x64.box --force
-        vagrant up
-        # Wait for vagrant to finish and prompt you
+     vagrant init 'IOS XRv'
+     vagrant box add --name 'IOS XRv' iosxrv-fullk9-x64.box --force
+     vagrant up
+     # Wait for vagrant to finish and prompt you
 
-   * To access operns App Hosting / XR Linux space:
-   
-     .. code-block::bash
-     
-        vagrant ssh
+* To access operns App Hosting / XR Linux space:
+  ::
+  
+     vagrant ssh
 
-   * To access XR Console:
+* To access XR Console:
+  ::
+  
+     ssh -p 2222 vagrant@127.0.0.1
    
-     .. code-block::bash
-     
-        'ssh -p 2222 vagrant@127.0.0.1'
-   
-     Note this port number can be changed by vagrant so 'vagrant port' will
-     list the ports.
+  Note this port number can be changed by Vagrant, so ``vagrant port`` will
+  list the ports.
 
 ''''''''''''''''''''''''''''''''''''''''
 How to bring up multiple node instances:
 ''''''''''''''''''''''''''''''''''''''''
 
-  * Copy a multi-node Vagrantfile from ``iosxrv-x64-vbox/vagrantfiles/simple-mixed-topo/Vagrantfile``
-  * Note that this Vagrantfile will pull the ubuntu VM from Atlas.
-  * Add the box to Vagrant and bring up the topology:
+* Copy a multi-node Vagrantfile from ``iosxrv-x64-vbox/vagrantfiles/simple-mixed-topo/Vagrantfile``
+* Note that this Vagrantfile will pull the ubuntu VM from Atlas.
+* Add the box to Vagrant and bring up the topology:
+  ::
   
-    .. code-block::bash
+     vagrant box add --name 'IOS XRv' iosxrv-fullk9-x64.box --force
+     vagrant up
+ 
+* To access opernns App Hosting / XR Linux spaces:
+  ::
   
-       vagrant box add --name 'IOS XRv' iosxrv-fullk9-x64.box --force
-       vagrant up
-       
-  * To access opernns App Hosting / XR Linux spaces
+    vagrant ssh rtr1 
+    vagrant ssh rtr2
+ 
+* To access XR Console:
+  ::
   
-    .. code-block::bash
-  
-       vagrant ssh rtr1 
-       vagrant ssh rtr2
-       
-  * To access XR Console:
-  
-    .. code-block::bash
-  
-       # List the ports assigned to a given node
-       vagrant port rtr2
-       # Then do: ssh vagrant@localhost -p <port from above>
-       # E.g: ssh vagrant@localhost -p 2223
-       # Repeat for each node
+    # List the ports assigned to a given node
+    vagrant port rtr2
+    # Then do: ssh vagrant@localhost -p <port from above>
+    # E.g: ssh vagrant@localhost -p 2223
+    # Repeat for each node
 
 .. _`IOS XRv 9000`: http://www.cisco.com/c/en/us/support/routers/ios-xrv-9000-router/tsd-products-support-series-home.html
 .. _Homebrew: http://brew.sh/
