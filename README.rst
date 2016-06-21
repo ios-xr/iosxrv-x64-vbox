@@ -1,6 +1,6 @@
-============================================
-xr-cp-vbox soon to be iosxr-create-vbox
-============================================
+===============
+iosxrv-x64-vbox
+===============
 
 --------------
 Contributions
@@ -66,41 +66,6 @@ space, no password needed. No messy configuration of resolv.conf
 issues for DNS lookup.
 
 The box also allows IOS XR Console access, ssh if a k9 image, telnet if not.
-
-The IOS XR configuration that comes with the box that allows external
-connectivity is:
-
-RP/0/RP0/CPU0:ios#show run
-Wed May 11 16:28:40.484 UTC
-Building configuration...
-!! IOS XR Configuration version = 6.1.1.14I
-!! Last configuration change at Tue May 10 13:02:15 2016 by vagrant
-!
-telnet vrf default ipv4 server max-servers 10
-username vagrant
-group root-lr
-group cisco-support
-secret 5 $1$.8ox$u9e4lV0IOOezL2efarypX/
-!
-tpa
-address-family ipv4
-update-source MgmtEth0/RP0/CPU0/0
-!
-!
-interface MgmtEth0/RP0/CPU0/0
-ipv4 address dhcp
-!
-router static
-address-family ipv4 unicast
-0.0.0.0/0 MgmtEth0/RP0/CPU0/0 10.0.2.2
-!
-!
-ssh server v2
-ssh server vrf default
-grpc
-port 57777
-!
-end
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The iosxr_iso2vbox.py tool is:
