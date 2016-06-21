@@ -1,0 +1,24 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+
+# All Vagrant configuration is done below. The "2" in Vagrant.configure
+# configures the configuration version (we support older styles for
+# backwards compatibility). Please don't change it unless you know what
+# you're doing.
+
+#
+# Configure puppet on XR linux
+#
+Vagrant.configure(2) do |config|
+  config.vm.define "rtr1" do |node|
+      node.vm.box =  "IOS XRv"
+  end
+  config.vm.provision :shell, :inline => "wget http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs"
+  config.vm.provision :shell, :inline => "wget http://yum.puppetlabs.com/RPM-GPG-KEY-reductive"
+  config.vm.provision :shell, :inline => "sudo /usr/bin/rpm --import ./RPM-GPG-KEY-*"
+  config.vm.provision :shell, :inline => "wget http://yum.puppetlabs.com/puppetlabs-release-pc1-cisco-wrlinux-7.noarch.rpm"
+  config.vm.provision :shell, :inline => "sudo yum localinstall -y puppetlabs-release-pc1-cisco-wrlinux-7.noarch.rpm"
+  config.vm.provision :shell, :inline => "sudo yum install -y puppet"
+  config.vm.provision :shell, :inline => "source /etc/profile; env PATH='/opt/puppetlabs/puppet/bin:${PATH}' gem source --add https://rubygems.org"
+end

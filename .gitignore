@@ -1,0 +1,6 @@
+machines
+/testbed
+/mail_me.py
+.pyc
+*.pyc
+/README.html

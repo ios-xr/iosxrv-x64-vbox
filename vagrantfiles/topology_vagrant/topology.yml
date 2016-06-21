@@ -1,0 +1,136 @@
+---
+nodes:
+    - name: rtr1
+      box: xrv64
+      mem: 4096          #Optional
+      cpus: 2            #Optional
+      xrsshport: "2301"
+      xrcnslport: "65001"
+      xrauxport: "65002"
+
+    - name: rtr2
+      box: xrv64
+      xrsshport: "2302"
+      xrcnslport: "65003"
+      xrauxport: "65004"
+
+    - name: rtr3
+      box: xrv64
+      xrsshport: "2303"
+      xrcnslport: "65005"
+      xrauxport: "65006"
+
+    - name: rtr4
+      box: xrv64
+      xrsshport: "2304"
+      xrcnslport: "65007"
+      xrauxport: "65008"
+
+    - name: rtr5
+      box: xrv64
+      xrsshport: "2305"
+      xrcnslport: "65009"
+      xrauxport: "65010"
+
+    - name: rtr6
+      box: xrv64
+      xrsshport: "2306"
+      xrcnslport: "65011"
+      xrauxport: "65012"
+
+
+
+edges:
+    - name: link1
+      type: private_internal             #Optional. By default the network is assumed to be private_internal. The other supported option is private_shared (shared with host)
+      headnode:
+          name: rtr1
+          interface: 1
+          interface_name: "Gig0/0/0/1"  # Optional. For user reference
+      tailnode:
+          name: rtr2
+          interface: 3
+          interface_name: "Gig0/0/0/3"  # Optional. For user reference
+
+    - name: link2
+      type: private_internal
+      headnode:
+          name: rtr1
+          interface: 2
+          interface_name: "Gig0/0/0/2"
+      tailnode:
+          name: rtr2
+          interface: 2
+          interface_name: "Gig0/0/0/2"
+
+
+    - name: link3
+      type: private_internal
+      headnode:
+          name: rtr1
+          interface: 3
+          interface_name: "Gig0/0/0/3"
+      tailnode:
+          name: rtr4
+          interface: 1
+          interface_name: "Gig0/0/0/1"
+
+
+    - name: link4
+      type: private_internal
+      headnode:
+          name: rtr2
+          interface: 1
+          interface_name: "Gig0/0/0/1"
+      tailnode:
+          name: rtr3
+          interface: 1
+          interface_name: "Gig0/0/0/1"
+
+
+    - name: link5
+      type: private_internal
+      headnode:
+          name: rtr3
+          interface: 2
+          interface_name: "Gig0/0/0/2"
+      tailnode:
+          name: rtr4
+          interface: 2
+          interface_name: "Gig0/0/0/2"
+
+
+    - name: link6
+      type: private_internal
+      headnode:
+          name: rtr3
+          interface: 3
+          interface_name: "Gig0/0/0/3"
+      tailnode:
+          name: rtr5
+          interface: 1
+          interface_name: "Gig0/0/0/1"
+
+    - name: link7
+      type: private_internal
+      headnode:
+          name: rtr4
+          interface: 3
+          interface_name: "Gig0/0/0/3"
+      tailnode:
+          name: rtr5
+          interface: 2
+          interface_name: "Gig0/0/0/2"
+
+    - name: segment1
+      type: private_shared
+      nodes:
+          - name: rtr5
+            interface: 3
+            interface_name: "Gig0/0/0/3"
+            ip: "192.168.50.4"
+
+          - name: rtr6
+            interface: 1
+            interface_name: "Gig0/0/0/1"
+            ip: "192.168.50.5"

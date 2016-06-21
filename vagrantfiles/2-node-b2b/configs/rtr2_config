@@ -1,0 +1,51 @@
+!! IOS XR Configuration version = 6.1.1.06I
+!! Last configuration change at Fri Mar 18 06:32:48 2016 by vagrant
+!
+hostname rtr2
+telnet vrf default ipv4 server max-servers 10
+username vagrant
+ group root-lr
+ group cisco-support
+ secret 5 $1$YcAt$1Wv9P3JWm2tTIpQJwddBQ.
+!
+interface Loopback0
+ ipv4 address 2.2.2.2 255.255.255.255
+!
+interface MgmtEth0/RP0/CPU0/0
+ ipv4 address dhcp
+!
+interface GigabitEthernet0/0/0/1
+ ipv4 address 10.1.1.2 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet0/0/0/2
+ ipv4 address 11.1.1.2 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet0/0/0/3
+ ipv4 address 192.168.33.30 255.255.255.0
+ no shutdown
+!
+!
+router static
+ address-family ipv4 unicast
+  0.0.0.0/0 MgmtEth0/RP0/CPU0/0 10.0.2.2
+ !
+!
+router ospf 100
+ area 0
+  interface Loopback0
+  !
+  interface GigabitEthernet0/0/0/1
+  !
+  interface GigabitEthernet0/0/0/2
+  !
+ !
+!
+grpc
+ port 57777
+!
+ssh server v2
+ssh server vrf default
+end
+

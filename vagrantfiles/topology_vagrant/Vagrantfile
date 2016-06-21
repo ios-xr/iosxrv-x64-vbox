@@ -1,0 +1,75 @@
+# -*- mode: ruby -*-
+
+# vi: set ft=ruby :
+
+rtr_xr_cfg_file_remote = "/home/vagrant/rtr_config"
+rtr_xr_cfg_dir_host = "configs"
+rtr_xr_scripts_dir_host = "xr_scripts"
+
+# Ensure yaml module is loaded
+require 'yaml'
+require 'pp'
+
+require File.dirname(__FILE__) + '/graph.rb'
+include GraphObj
+
+nodes = yml_to_obj()
+
+Vagrant.configure(2) do |config|
+
+  # Turn off shared folders
+  config.vm.synced_folder ".", "/vagrant", id: "vagrant-root", disabled: true
+
+  # Give IOS XRv (64-bit) 400 seconds to come up
+  config.vm.boot_timeout = 400
+
+  # 57722 is the operns_sshd (22 is XR)
+  config.ssh.forward_agent = true
+  config.ssh.insert_key = true
+  config.ssh.guest_port = 57722
+
+  nodes.each do |name, node|
+    config.vm.define name do |config|
+      config.vm.box = node.box
+      config.vm.network :forwarded_port, guest: 22, host: node.xrsshport, id: "ssh", auto_correct: true
+      config.vm.post_up_message="Welcome to the IOS-XR XRv64 Virtualbox. \n"\
+                            "Please use 'vagrant ssh #{name}' to access "\
+                            "the router's linux shell. \n"\
+                            "'ssh vagrant@localhost -p #{node.xrsshport}' to ssh to XR console.\n"\
+                            "'telnet localhost #{node.xrcnslport}' to connect directly to XR Console.\n"\
+                            "'telnet localhost #{node.xrauxport}' to connect directly to XR Aux.\n"
+
+
+      config.vm.provider "virtualbox" do |v|
+        v.customize ["modifyvm", :id, "--uart1", "0x3F8", 4, "--uartmode1", 'tcpserver', node.xrcnslport]
+        v.customize ["modifyvm", :id, "--uart2", "0x2F8", 3, "--uartmode2", 'tcpserver', node.xrauxport]
+      end
+
+      intf_cnt = 0
+      node.node_link_name.each do |intf_num, link_name|
+          intf_cnt += 1
+          link_name = node.node_link_name["#{intf_cnt}"]
+
+          if node.node_link_type["#{intf_cnt}"] == "private_internal"
+            config.vm.network :"private_network", virtualbox__intnet:"#{link_name}", auto_config: false
+          end
+
+          if node.node_link_type["#{intf_cnt}"] == "private_shared"
+            intf_ip = node.node_intf_ip["#{intf_cnt}"]
+            config.vm.network :"private_network", ip:"#{intf_ip}", auto_config: false
+          end
+
+      end
+
+
+      #Source a config file and apply it to XR
+#      config.vm.provision "file", source: "#{rtr_xr_cfg_dir_host}/#{name}_config", destination: rtr_xr_cfg_file_remote
+#      config.vm.provision "shell" do |s|
+#        s.path =  "#{rtr_xr_scripts_dir_host}/apply_config.sh"
+#        s.args = ["#{rtr_xr_cfg_file_remote}"]
+#      end
+
+
+    end
+  end
+end
