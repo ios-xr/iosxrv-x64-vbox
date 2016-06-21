@@ -1,6 +1,10 @@
-#
-# Login to IOS XR, apply some config and then exit
-#
+'''
+Author: Rich Wellum (richwellum@gmail.com)
+
+Login to IOS XR, apply some config and then exit.
+
+Called by iosxr_iso2vbox.py
+'''
 
 import time
 

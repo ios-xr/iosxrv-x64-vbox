@@ -1,5 +1,8 @@
 #!/usr/bin/python
 '''
+Author: Rich Wellum (richwellum@gmail.com)
+        goblinhack  (goblinhack@gmail.com)
+
 A library of python expect classes and functions used to connect to a Cisco IOS
 XR router. This file is designed to be called by pointing to another python
 file with the actual CLI to be configured, or the functions within can be used
