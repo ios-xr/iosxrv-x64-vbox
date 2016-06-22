@@ -96,7 +96,7 @@ class XrLogin(object):
 
         # Commit changes and end
         xr1.send("commit")
-        # A sleep and another commt can help if config locks are seen.
+        # A sleep and another commit can help if config locks are seen.
         # time.sleep(5)
         # xr1.send("commit")
         xr1.wait("config")
