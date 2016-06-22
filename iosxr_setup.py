@@ -9,12 +9,13 @@ Called by iosxr_iso2vbox.py
 '''
 
 import time
+import re
 
 
 class XrLogin(object):
 
-    def __init__(self, pysun, name="xr"):
-        self.pysun = pysun
+    def __init__(self, iosxr_pexpect, name="xr"):
+        self.iosxr_pexpect = iosxr_pexpect
         self.xr_telnet_sessions = []
         self.vm_host_telnet_sessions = []
         self.name = name
@@ -23,9 +24,9 @@ class XrLogin(object):
     # Launch nodes
     #
     def pre_node(self):
-        pysun = self.pysun
-        pysun.logger.info("logging in")
-        self.xr = pysun.Node(pysun, self.name)
+        iosxr_pexpect = self.iosxr_pexpect
+        iosxr_pexpect.logger.info("logging in")
+        self.xr = iosxr_pexpect.Node(iosxr_pexpect, self.name)
 
     #
     # Open XR sessions
@@ -46,6 +47,13 @@ class XrLogin(object):
 
         # ZTP causes some startup issues so disable it during box creation
         xr1.send("ztp terminate noprompt")
+
+        # Determine if the image is a crypto/k9 image or not
+        # This will be used to determine whether to configure ssh or not
+        xr1.send("run rpm -qa | grep k9sec")
+        time.sleep(2)
+        output = xr1.wait("[\$#]")
+        k9 = re.search(r'iosxrv-k9sec', output)
 
         # Wait for a management interface to be available
         xr1.repeat_until("sh run | inc MgmtEth",
@@ -74,11 +82,12 @@ class XrLogin(object):
             xr1.send("router static address-family ipv4 unicast 0.0.0.0/0 MgmtEth0/RP0/CPU0/0 %s" % gateway)
             xr1.wait("config")
 
-        # Enable ssh (if k9 image) - TODO
-        xr1.send("ssh server v2")
-        xr1.wait("config")
-        xr1.send("ssh server vrf default")
-        xr1.wait("config")
+        # Configure ssh if a k9/crypto image
+        if k9:
+            xr1.send("ssh server v2")
+            xr1.wait("config")
+            xr1.send("ssh server vrf default")
+            xr1.wait("config")
 
         # Configure GRPC protocol
         xr1.send("grpc")
@@ -152,10 +161,11 @@ class XrLogin(object):
         xr1.send("exit")
         xr1.wait("RP/0/RP0/CPU0:ios")
 
-        # Generate a crypto key on XR. Note will fail if not a k9 image.
-        xr1.send("crypto key generate rsa")
-        xr1.wait("How many bits in the modulus")
-        xr1.send("")  # Send enter to get default 2048
+        # Set up IOS XR ssh if a k9/crypto image
+        if k9:
+            xr1.send("crypto key generate rsa")
+            xr1.wait("How many bits in the modulus")
+            xr1.send("")  # Send enter to get default 2048
 
     def get_mgmt_ip(self):
         xr1 = self.xr1
@@ -181,9 +191,9 @@ class XrLogin(object):
     # Shut down running nodes
     #
     def clean_node(self):
-        pysun = self.pysun
-        pysun.Node(pysun, "xr", clean=True, b2b=False, mgmt=True)
+        iosxr_pexpect = self.iosxr_pexpect
+        iosxr_pexpect.Node(iosxr_pexpect, "xr", clean=True, b2b=False, mgmt=True)
 
 
-def get_instance(pysun):
-    return XrLogin(pysun)
+def get_instance(iosxr_pexpect):
+    return XrLogin(iosxr_pexpect)
