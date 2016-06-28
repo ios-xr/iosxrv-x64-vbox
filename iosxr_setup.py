@@ -50,7 +50,7 @@ class XrLogin(object):
 
         # Determine if the image is a crypto/k9 image or not
         # This will be used to determine whether to configure ssh or not
-        xr1.send("run rpm -qa | grep k9sec")
+        xr1.send("bash -c rpm -qa | grep k9sec")
         time.sleep(2)
         output = xr1.wait("[\$#]")
         k9 = re.search(r'-k9sec', output)
@@ -113,7 +113,7 @@ class XrLogin(object):
 
         # Needed for jenkins if using root password
         if allow_root_login:
-            xr1.send("run sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config_operns")
+            xr1.send("bash -c sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config_operns")
 
         #
         # Send commands to XR Linux
