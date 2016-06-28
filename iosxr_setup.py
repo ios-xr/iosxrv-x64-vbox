@@ -50,7 +50,7 @@ class XrLogin(object):
 
         # Determine if the image is a crypto/k9 image or not
         # This will be used to determine whether to configure ssh or not
-        xr1.send("bash rpm -qa | grep k9sec")
+        xr1.send("run rpm -qa | grep k9sec")
         time.sleep(2)
         output = xr1.wait("[\$#]")
         k9 = re.search(r'-k9sec', output)
@@ -113,12 +113,12 @@ class XrLogin(object):
 
         # Needed for jenkins if using root password
         if allow_root_login:
-            xr1.send("bash sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config_operns")
+            xr1.send("run sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config_operns")
 
         #
         # Send commands to XR Linux
         #
-        xr1.send("bash")
+        xr1.send("run")
 
         # Add passwordless sudo as required by jenkins
         xr1.send("echo '####Added by iosxr_setup to give vagrant passwordless access' >> /etc/sudoers")
@@ -126,7 +126,7 @@ class XrLogin(object):
 
         # Add public key, so users can ssh without a password
         # https://github.com/purpleidea/vagrant-builder/blob/master/v6/files/ssh.sh
-        xr1.send("mkdir -p ~vagrant/.ssh")
+        xr1.send("[ -d ~vagrant/.ssh ] || mkdir ~vagrant/.ssh")
         xr1.send("chmod 0700 ~vagrant/.ssh")
         xr1.send("echo 'ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ== vagrant insecure public key' > ~vagrant/.ssh/authorized_keys")
         xr1.send("chmod 0600 ~vagrant/.ssh/authorized_keys")
