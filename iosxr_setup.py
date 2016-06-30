@@ -75,6 +75,8 @@ class XrLogin(object):
         k9 = re.search(r'-k9sec', output)
         if k9:
             xr1.log("Crypto k9 image detected")
+        else:
+            xr1.log("Non crypto k9 image detected")
 
         # Determine if the image is a full or mini by searching for the mgbl rpm
         # which only exists in the full image
@@ -83,6 +85,10 @@ class XrLogin(object):
         time.sleep(2)
         output = xr1.wait("[\$#]")
         full = re.search(r'-mgbl', output)
+        if full:
+            xr1.log("Full image detected")
+        else:
+            xr1.log("Mini image detected")
 
         # Wait for a management interface to be available
         xr1.repeat_until("sh run | inc MgmtEth",
@@ -144,7 +150,6 @@ class XrLogin(object):
 
         # Add passwordless sudo as required by jenkins
         self.send_operns("echo '####Added by iosxr_setup to give vagrant passwordless access' >> /etc/sudoers")
-        self.send_operns("echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers")
         self.send_operns("echo 'vagrant ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers")
 
         # Add public key, so users can ssh without a password
@@ -167,7 +172,7 @@ class XrLogin(object):
         # Add Cisco OpenDNS IPv4 nameservers as a default DNS resolver
         # almost all users who have internet connectivity will be able to reach those.
         # This will prevent users from needing to supply another Vagrantfile or editing /etc/resolv.conf manually
-        # Doing this in xrnns because the syncing of cat /etc/netns/global-vrf/resolv.conf to
+        # Doing this in xrnns because the syncing of /etc/netns/global-vrf/resolv.conf to
         # /etc/resolv.conf requires 'ip netns exec global-vrf bash'.
         xr1.send("run echo '# Cisco OpenDNS IPv4 nameservers' > /etc/resolv.conf")
         xr1.send("run echo 'nameserver 208.67.222.222' >> /etc/resolv.conf")
