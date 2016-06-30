@@ -76,6 +76,14 @@ class XrLogin(object):
         if k9:
             xr1.log("Crypto k9 image detected")
 
+        # Determine if the image is a full or mini by searching for the mgbl rpm
+        # which only exists in the full image
+        # This will be used to configure features only available in a full image
+        xr1.send("bash -c rpm -qa | grep mgbl")
+        time.sleep(2)
+        output = xr1.wait("[\$#]")
+        full = re.search(r'-mgbl', output)
+
         # Wait for a management interface to be available
         xr1.repeat_until("sh run | inc MgmtEth",
                          match_txt="interface MgmtEth",
@@ -110,16 +118,14 @@ class XrLogin(object):
             xr1.send("ssh server vrf default")
             xr1.wait("config")
 
-        # Configure GRPC protocol
-        xr1.send("grpc")
-        xr1.send(" port 57777")
-        xr1.wait("config-grpc")
+        # Configure GRPC protocol if a full image
+        if full:
+            xr1.send("grpc")
+            xr1.send(" port 57777")
+            xr1.wait("config-grpc")
 
         # Commit changes and end
         xr1.send("commit")
-        # A sleep and another commit can help if config locks are seen.
-        # time.sleep(5)
-        # xr1.send("commit")
         xr1.wait("config")
 
         xr1.send("end")
