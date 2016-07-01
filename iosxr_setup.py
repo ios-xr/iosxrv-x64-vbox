@@ -74,7 +74,7 @@ class XrLogin(object):
         else:
             xr1.log("Non crypto k9 image detected")
 
-        # Determine if the image has the MGBL package needed for GRPC
+        # Determine if the image has the MGBL package needed for gRPC
         output = self.send_operns("rpm -qa | grep mgbl")
         mgbl = re.search(r'-mgbl', output)
         if mgbl:
@@ -116,7 +116,7 @@ class XrLogin(object):
             xr1.send("ssh server vrf default")
             xr1.wait("config")
 
-        # Configure GRPC protocol if MGBL package is available
+        # Configure gRPC protocol if MGBL package is available
         if mgbl:
             xr1.send("grpc")
             xr1.send(" port 57777")
