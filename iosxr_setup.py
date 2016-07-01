@@ -43,16 +43,15 @@ class XrLogin(object):
         xr1 = self.xr1
 
         xr1.send("bash -c %s" % command)
-        xr1.wait("[\$#]")
+        time.sleep(1)
+        return xr1.wait("[$#]")
 
     #
-    # Send a xrnns XR Linux command - wait for prompt
+    # Send a xrnns XR Linux command
     #
     def send_xrnns(self, command):
         xr1 = self.xr1
-
         xr1.send("run %s" % command)
-        xr1.wait("[\$#]")
 
     #
     # Configure a vagrant box
@@ -69,9 +68,7 @@ class XrLogin(object):
 
         # Determine if the image is a crypto/k9 image or not
         # This will be used to determine whether to configure ssh or not
-        xr1.send("bash -c rpm -qa | grep k9sec")
-        time.sleep(2)
-        output = xr1.wait("[\$#]")
+        output = self.send_operns("rpm -qa | grep k9sec")
         k9 = re.search(r'-k9sec', output)
         if k9:
             xr1.log("Crypto k9 image detected")
@@ -81,9 +78,7 @@ class XrLogin(object):
         # Determine if the image is a full or mini by searching for the mgbl rpm
         # which only exists in the full image
         # This will be used to configure features only available in a full image
-        xr1.send("bash -c rpm -qa | grep mgbl")
-        time.sleep(2)
-        output = xr1.wait("[\$#]")
+        output = self.send_operns("rpm -qa | grep mgbl")
         full = re.search(r'-mgbl', output)
         if full:
             xr1.log("Full image detected")
@@ -135,7 +130,7 @@ class XrLogin(object):
         xr1.wait("config")
 
         xr1.send("end")
-        xr1.wait("[\$#]")
+        xr1.wait("[$#]")
 
         # Spin waiting for an ip address to be associated with the interface
         if host_ip is not None:
@@ -149,8 +144,9 @@ class XrLogin(object):
             xr1.send("bash -c sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config_operns")
 
         # Add passwordless sudo as required by jenkins
+        # sudo not vagrant because we are operating in xrnns and global-vrf user space
         self.send_operns("echo '####Added by iosxr_setup to give vagrant passwordless access' >> /etc/sudoers")
-        self.send_operns("echo 'vagrant ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers")
+        self.send_operns("echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers")
 
         # Add public key, so users can ssh without a password
         # https://github.com/purpleidea/vagrant-builder/blob/master/v6/files/ssh.sh
@@ -174,9 +170,9 @@ class XrLogin(object):
         # This will prevent users from needing to supply another Vagrantfile or editing /etc/resolv.conf manually
         # Doing this in xrnns because the syncing of /etc/netns/global-vrf/resolv.conf to
         # /etc/resolv.conf requires 'ip netns exec global-vrf bash'.
-        xr1.send("run echo '# Cisco OpenDNS IPv4 nameservers' > /etc/resolv.conf")
-        xr1.send("run echo 'nameserver 208.67.222.222' >> /etc/resolv.conf")
-        xr1.send("run echo 'nameserver 208.67.220.220' >> /etc/resolv.conf")
+        self.send_xrnns('echo "# Cisco OpenDNS IPv4 nameservers" >> /etc/resolv.conf')
+        self.send_xrnns('echo "nameserver 208.67.222.222" >> /etc/resolv.conf')
+        self.send_xrnns('echo "nameserver 208.67.220.220" >> /etc/resolv.conf')
 
         # Start operns sshd server so vagrant ssh can access app-hosting space
         self.send_operns("service sshd_operns start")
@@ -196,6 +192,7 @@ class XrLogin(object):
             xr1.send("crypto key generate rsa")
             xr1.wait("How many bits in the modulus")
             xr1.send("")  # Send enter to get default 2048
+            xr1.wait("[$#]")  # Wait for the prompt
 
     def get_mgmt_ip(self):
         xr1 = self.xr1
