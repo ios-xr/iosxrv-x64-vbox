@@ -8,7 +8,6 @@ connectivity on bringup. As well as other needed features like SSH and DNS.
 Called by iosxr_iso2vbox.py
 '''
 
-import time
 import re
 
 
