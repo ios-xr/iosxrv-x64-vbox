@@ -43,7 +43,6 @@ class XrLogin(object):
         xr1 = self.xr1
 
         xr1.send("bash -c %s" % command)
-        time.sleep(1)
         return xr1.wait("[$#]")
 
     #
@@ -75,15 +74,13 @@ class XrLogin(object):
         else:
             xr1.log("Non crypto k9 image detected")
 
-        # Determine if the image is a full or mini by searching for the mgbl rpm
-        # which only exists in the full image
-        # This will be used to configure features only available in a full image
+        # Determine if the image has the MGBL package needed for GRPC
         output = self.send_operns("rpm -qa | grep mgbl")
-        full = re.search(r'-mgbl', output)
-        if full:
-            xr1.log("Full image detected")
+        mgbl = re.search(r'-mgbl', output)
+        if mgbl:
+            xr1.log("MGBL package detected")
         else:
-            xr1.log("Mini image detected")
+            xr1.log("MGBL package not detected")
 
         # Wait for a management interface to be available
         xr1.repeat_until("sh run | inc MgmtEth",
@@ -119,8 +116,8 @@ class XrLogin(object):
             xr1.send("ssh server vrf default")
             xr1.wait("config")
 
-        # Configure GRPC protocol if a full image
-        if full:
+        # Configure GRPC protocol if MGBL package is available
+        if mgbl:
             xr1.send("grpc")
             xr1.send(" port 57777")
             xr1.wait("config-grpc")
@@ -145,8 +142,8 @@ class XrLogin(object):
 
         # Add passwordless sudo as required by jenkins
         # sudo not vagrant because we are operating in xrnns and global-vrf user space
-        self.send_operns("echo '####Added by iosxr_setup to give vagrant passwordless access' >> /etc/sudoers")
-        self.send_operns("echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers")
+        self.send_operns("echo '####Added by iosxr_setup to give vagrant passwordless access' | tee -a /etc/sudoers")
+        self.send_operns("echo 'vagrant ALL=(ALL) NOPASSWD: ALL' | tee -a /etc/sudoers")
 
         # Add public key, so users can ssh without a password
         # https://github.com/purpleidea/vagrant-builder/blob/master/v6/files/ssh.sh
@@ -170,9 +167,9 @@ class XrLogin(object):
         # This will prevent users from needing to supply another Vagrantfile or editing /etc/resolv.conf manually
         # Doing this in xrnns because the syncing of /etc/netns/global-vrf/resolv.conf to
         # /etc/resolv.conf requires 'ip netns exec global-vrf bash'.
-        self.send_xrnns('echo "# Cisco OpenDNS IPv4 nameservers" >> /etc/resolv.conf')
-        self.send_xrnns('echo "nameserver 208.67.222.222" >> /etc/resolv.conf')
-        self.send_xrnns('echo "nameserver 208.67.220.220" >> /etc/resolv.conf')
+        self.send_xrnns("echo '# Cisco OpenDNS IPv4 nameservers' >> /etc/resolv.conf")
+        self.send_xrnns("echo 'nameserver 208.67.222.222' >> /etc/resolv.conf")
+        self.send_xrnns("echo 'nameserver 208.67.220.220' >> /etc/resolv.conf")
 
         # Start operns sshd server so vagrant ssh can access app-hosting space
         self.send_operns("service sshd_operns start")
