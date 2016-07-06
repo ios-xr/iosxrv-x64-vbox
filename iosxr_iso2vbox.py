@@ -63,7 +63,6 @@ from __future__ import print_function
 import sys
 import os
 import getopt
-import datetime
 import time
 import subprocess
 import getpass
@@ -180,7 +179,9 @@ def main(argv):
     vdi = os.path.join(box_dir, vmname + '.vdi')
     box_out = os.path.join(box_dir, vmname + '.box')
     ova_out = os.path.join(box_dir, vmname + '.ova')
+    pathname = os.path.abspath(os.path.dirname(sys.argv[0]))
 
+    verboseprint('pathname: %s' % pathname)
     verboseprint('VM Name:  %s' % vmname)
     verboseprint('base_dir: %s' % base_dir)
     verboseprint('box_dir:  %s' % box_dir)
@@ -192,22 +193,15 @@ def main(argv):
     if not os.path.exists(box_dir):
         os.makedirs(box_dir)
 
-    dt = datetime.datetime.strftime(datetime.datetime.now(),
-                                    '%Y-%m-%d-%H-%M-%S')
-
     # Move existing box files. Maybe should just delete
     if os.path.exists(box_out):
-        newname = box_out + '_' + dt
-        os.rename(box_out, newname)
-        verboseprint('Found %s' % box_out)
-        verboseprint('Moved to %s' % newname)
+        os.remove(box_out)
+        verboseprint('Found and deleted previous %s' % box_out)
 
     # Move existing ova files. Maybe should just delete
     if os.path.exists(ova_out) and create_ova is True:
-        newname = ova_out + '_' + dt
-        os.rename(ova_out, newname)
-        verboseprint('Found %s' % ova_out)
-        verboseprint('Moved to %s' % newname)
+        os.remove(ova_out)
+        verboseprint('Found and deleted previosu %s' % ova_out)
 
     # Destroy default vagrant box
     verboseprint('Destroy default box')
@@ -232,8 +226,8 @@ def main(argv):
 
     # Remove stale SSH entry
     verboseprint('Removing stale SSH entries')
-    run('ssh-keygen -R [127.0.0.1]:2222')
-    run('ssh-keygen -R [127.0.0.1]:2223')
+    run('ssh-keygen -R [localhost]:2222')
+    run('ssh-keygen -R [localhost]:2223')
 
     # Create and register a new VirtualBox VM
     verboseprint('Create VM')
@@ -341,8 +335,7 @@ def main(argv):
     # Using socat to do the connection as telnet has an
     # odd double return on vbox
     verboseprint('Bringing up with iosxr_pexpect.py to install to disk and configure')
-    full_pathname = os.path.abspath(os.path.dirname(sys.argv[0]))
-    iosxr_pexpect_path = os.path.join(full_pathname, 'iosxr_pexpect.py')
+    iosxr_pexpect_path = os.path.join(pathname, 'iosxr_pexpect.py')
     cmdstring = "python %s -cmds 'socat TCP:localhost:%s -,raw,echo=0,escape=0x1d' -config iosxr_setup" % (iosxr_pexpect_path, console_port)
     subprocess.call(cmdstring, shell=True)
     # Todo: this isn't suppressing the output
@@ -374,10 +367,9 @@ def main(argv):
     verboseprint('Creating Virtualbox')
 
     # Add in embedded Vagrantfile
-    pathname = os.path.dirname(sys.argv[0])
-    full_pathname = os.path.join(os.path.abspath(pathname), 'include', 'embedded_vagrantfile')
+    vagrant_pathname = os.path.join(pathname, 'include', 'embedded_vagrantfile')
 
-    run('vagrant package --base %s --vagrantfile %s --output %s' % (vmname, full_pathname, box_out))
+    run('vagrant package --base %s --vagrantfile %s --output %s' % (vmname, vagrant_pathname, box_out))
     verboseprint('Created: %s' % box_out)
 
     # Create OVA
@@ -385,6 +377,19 @@ def main(argv):
         verboseprint('Creating OVA %s' % ova_out)
         run('VBoxManage export %s --output %s' % (vmname, ova_out))
         verboseprint('Created OVA %s' % ova_out)
+
+    # Run basic sanity tests
+    verboseprint('Testing Virtualbox')
+    iosxr_test_path = os.path.join(pathname, 'iosxr_test.py')
+    cmdstring = "python %s %s" % (iosxr_test_path, box_out)
+    verboseprint("Running: '%s'" % cmdstring)
+    result = (subprocess.check_output(cmdstring, shell=True))
+    if result is False:
+        # Fail noisily
+        print('Failed basic test, box %s is not sane' % box_out)
+        sys.exit(1)
+    else:
+        verboseprint('Passed basic test, box %s is sane' % box_out)
 
     verboseprint('Single node use:')
     verboseprint(" vagrant init 'IOS XRv'")
@@ -406,8 +411,7 @@ def main(argv):
         pass
 
     if copy_to_artifactory is True:
-        full_pathname = os.path.abspath(os.path.dirname(sys.argv[0]))
-        iosxr_store_box_path = os.path.join(full_pathname, 'iosxr_store_box.py')
+        iosxr_store_box_path = os.path.join(pathname, 'iosxr_store_box.py')
         if verbose is True:
             add_verbose = '-v'
 
