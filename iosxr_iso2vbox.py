@@ -201,7 +201,7 @@ def main(argv):
     # Move existing ova files. Maybe should just delete
     if os.path.exists(ova_out) and create_ova is True:
         os.remove(ova_out)
-        verboseprint('Found and deleted previosu %s' % ova_out)
+        verboseprint('Found and deleted previous %s' % ova_out)
 
     # Destroy default vagrant box
     verboseprint('Destroy default box')
@@ -367,9 +367,9 @@ def main(argv):
     verboseprint('Creating Virtualbox')
 
     # Add in embedded Vagrantfile
-    vagrant_pathname = os.path.join(pathname, 'include', 'embedded_vagrantfile')
+    vagrantfile_pathname = os.path.join(pathname, 'include', 'embedded_vagrantfile')
 
-    run('vagrant package --base %s --vagrantfile %s --output %s' % (vmname, vagrant_pathname, box_out))
+    run('vagrant package --base %s --vagrantfile %s --output %s' % (vmname, vagrantfile_pathname, box_out))
     verboseprint('Created: %s' % box_out)
 
     # Create OVA
@@ -379,15 +379,14 @@ def main(argv):
         verboseprint('Created OVA %s' % ova_out)
 
     # Run basic sanity tests
-    verboseprint('Testing Virtualbox')
+    verboseprint('Testing VirtualBox')
     iosxr_test_path = os.path.join(pathname, 'iosxr_test.py')
     cmdstring = "python %s %s" % (iosxr_test_path, box_out)
     verboseprint("Running: '%s'" % cmdstring)
     result = (subprocess.check_output(cmdstring, shell=True))
     if result is False:
         # Fail noisily
-        print('Failed basic test, box %s is not sane' % box_out)
-        sys.exit(1)
+        sys.exit('Failed basic test, box %s is not sane' % box_out)
     else:
         verboseprint('Passed basic test, box %s is sane' % box_out)
 

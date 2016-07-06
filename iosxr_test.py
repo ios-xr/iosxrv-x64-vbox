@@ -36,8 +36,25 @@ login_timeout = 10
 hostname = "localhost"
 username = "vagrant"
 password = "vagrant"
-linux_port = 2222
-xr_port = 2223
+
+
+def check_result(result, success_message):
+    '''
+    Function to check result of a pexpect operation.
+    Accepts a success message.
+    '''
+    if result == 0:
+        print('==>Test passed: %s' % success_message)
+        return True
+    elif result == 1:
+        print('==>EOF - Test failed')
+        return False
+    elif result == 2:
+        print('==> Timed out - Test failed')
+        return False
+    else:
+        print('==> Generic - Test failed')
+        return False
 
 
 def bringup_vagrant(input_box):
@@ -60,16 +77,16 @@ def bringup_vagrant(input_box):
 
     print("Bringing up '%s'..." % input_box)
 
-    run('vagrant init XRv64')  # Single node for now, in future could bring up two nodes and do more testing
-    run('vagrant box add --name XRv64 %s --force' % input_box)
+    run('vagrant init XRv64-test')  # Single node for now, in future could bring up two nodes and do more testing
+    run('vagrant box add --name XRv64-test %s --force' % input_box)
     run('vagrant up')
 
-    ports = str(subprocess.check_output('vagrant port', shell=True))
-    print(ports)
+    # Find the correct port to connect to
+    port = subprocess.check_output('vagrant port --guest 57722', shell=True)
 
     try:
         s = pexpect.pxssh.pxssh()
-        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, linux_port)
+        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, port)
     except pxssh.ExceptionPxssh, e:
         print("pxssh failed on login")
         print(str(e))
@@ -83,82 +100,55 @@ def test_linux():
     Verify resolv.conf is populated.
     '''
     print('Testing XR Linux...')
+    linux_port = subprocess.check_output('vagrant port --guest 57722', shell=True)
+    print('Connecting to port %s' % linux_port)
 
     try:
         s = pxssh.pxssh()
         s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, linux_port)
+        s.prompt()
+        print('==>Successfully logged into XR Linux')
 
         print('Check user:')
         s.sendline('whoami')
-        result = s.expect(['vagrant', pexpect.EOF, pexpect.TIMEOUT])
-        if result == 0:
-            print('==>Correct user found')
-        elif result == 1:
-            print('EOF')
-            return False
-        elif result == 2:
-            print('Timed out - wrong user name')
+        output = s.expect(['vagrant', pexpect.EOF, pexpect.TIMEOUT])
+        if check_result(output, 'Correct user found') is False:
             return False
         s.prompt()
 
         print('Check pinging the internet:')
         s.sendline("ping -c 4 google.com | grep '64 bytes' | wc -l")
-        result = s.expect(['4', pexpect.EOF, pexpect.TIMEOUT])
-        if result == 0:
-            print('==>Successfully pinged')
-        elif result == 1:
-            print('EOF')
-            return False
-        elif result == 2:
-            print('Timed out - ping failed')
+        output = s.expect(['4', pexpect.EOF, pexpect.TIMEOUT])
+        if check_result(output, 'Successfully pinged') is False:
             return False
         s.prompt()
 
         print('Check resolv.conf is correctly populated:')
         s.sendline("cat /etc/resolv.conf | grep 220")
-        result = s.expect(['nameserver 208.67.220.220', pexpect.EOF, pexpect.TIMEOUT])
-        if result == 0:
-            print('==>nameserver 208.67.220.220 is successfully populated')
-        elif result == 1:
-            print('EOF')
-            return False
-        elif result == 2:
-            print('Timed out - nameserver 208.67.220.220 is not populated in resolv.conf')
+        output = s.expect(['nameserver 208.67.220.220', pexpect.EOF, pexpect.TIMEOUT])
+        if check_result(output, 'nameserver 208.67.220.220 is successfully populated') is False:
             return False
         s.prompt()
 
         s.sendline("cat /etc/resolv.conf | grep 222")
-        result = s.expect(['nameserver 208.67.222.222', pexpect.EOF, pexpect.TIMEOUT])
-        if result == 0:
-            print('==>nameserver 208.67.222.222 is successfully populated')
-        elif result == 1:
-            print('EOF')
-            return False
-        elif result == 2:
-            print('Timed out - nameserver 208.67.220.222 is not populated in resolv.conf')
+        output = s.expect(['nameserver 208.67.222.222', pexpect.EOF, pexpect.TIMEOUT])
+        if check_result(output, 'nameserver 208.67.222.222 is successfully populated') is False:
             return False
         s.prompt()
 
         print('Check vagrant public key has been replaced by private:')
         s.sendline('grep "public" ~/.ssh/authorized_keys -c')
-        result = s.expect(['0', pexpect.EOF, pexpect.TIMEOUT])
-        if result == 0:
-            print('==>SSH public key successfully replaced')
-        elif result == 1:
-            print('EOF')
+        output = s.expect(['0', pexpect.EOF, pexpect.TIMEOUT])
+        if check_result(output, 'SSH public key successfully replaced') is False:
             return False
-        elif result == 2:
-            print('Timed out - SSH public key not successfully replaced')
-            return False
-
         s.prompt()
         s.logout()
     except pxssh.ExceptionPxssh as e:
-        print("pxssh failed on login.")
+        print("==>pxssh failed on login.")
         print(e)
         return False
     else:
-        print("Vagrant SSH to XR Linux is sane")
+        print("==>Vagrant SSH to XR Linux is sane")
         return True
 
 
@@ -172,52 +162,39 @@ def test_xr():
     '''
 
     print('Testing XR Console...')
+    iosxr_port = subprocess.check_output('vagrant port --guest 22', shell=True)
+    print('Connecting to port %s' % iosxr_port)
 
     try:
         s = pxssh.pxssh()
         s.force_password = True
         s.PROMPT = 'RP/0/RP0/CPU0:ios# '
 
-        print('Check logging into XR Console')
-        s.login(hostname, username, password, terminal_type, xr_prompt, login_timeout, xr_port, auto_prompt_reset=False)
+        s.login(hostname, username, password, terminal_type, xr_prompt, login_timeout, iosxr_port, auto_prompt_reset=False)
         s.prompt()
         s.sendline('term length 0')
         s.prompt()
         print('==>Successfully logged into XR Console')
 
-        print('Check show version')
+        print('Check show version:')
         s.sendline('show version | i cisco IOS XRv x64')
-        result = s.expect(['XRv x64', pexpect.EOF, pexpect.TIMEOUT])
-        if result == 0:
-            print('==>XRv x64 correctly found in show version')
-        elif result == 1:
-            print('EOF')
-            return False
-        elif result == 2:
-            print('Timed out - show version failed')
+        output = s.expect(['XRv x64', pexpect.EOF, pexpect.TIMEOUT])
+        if check_result(output, 'XRv x64 correctly found in show version') is False:
             return False
         s.prompt()
 
-        print('Check show run grpc')
-        s.sendline('show run grpc')
-        result = s.expect(['port 57777', pexpect.EOF, pexpect.TIMEOUT])
-        if result == 0:
-            print('==>GRPC port 57777 correctly found in show run')
-        elif result == 1:
-            print('EOF')
+        print('Check show run for username vagrant:')
+        s.sendline('show run | i username')
+        output = s.expect(['username vagrant', pexpect.EOF, pexpect.TIMEOUT])
+        if check_result(output, 'Username vagrant found') is False:
             return False
-        elif result == 2:
-            print('Timed out - show run failed')
-            return False
-
         s.prompt()
         s.logout()
-
     except pxssh.ExceptionPxssh as e:
-        print("pxssh failed on login.")
+        print("==>pxssh failed on login.")
         print(e)
     else:
-        print("Vagrant SSH to XR Console is sane")
+        print("==>Vagrant SSH to XR Console is sane")
         return True
 
 
@@ -237,7 +214,6 @@ def main():
             print(input_box, 'does not exist')
             sys.exit()
 
-    # Comment this code out when testing iosxr_test.py
     print('Destroying previous default VM')
     run('vagrant destroy --force')
 
@@ -253,9 +229,13 @@ def main():
     # Testing finished - clean up now
     run('vagrant destroy --force')
 
-    if result_linux or result_xr is False:
+    print('result_linux=%s, result_xr=%s' % (result_linux, result_xr))
+
+    if result_linux is False or result_xr is False:
+        print('==> One or more of IOS XR and IOS Linux test suites failed')
         return False
     else:
+        print('==> Both IOS XR and IOS Linux test suites passed')
         return True
 
 if __name__ == "__main__":
