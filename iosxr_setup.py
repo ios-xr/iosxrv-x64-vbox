@@ -141,7 +141,7 @@ class XrLogin(object):
 
         # Add passwordless sudo as required by jenkins
         # sudo not vagrant because we are operating in xrnns and global-vrf user space
-        self.send_operns("echo '####Added by iosxr_setup to give vagrant passwordless access' (EDITOR='tee -a' visudo)")
+        self.send_operns("echo '####Added by iosxr_setup to give vagrant passwordless access' | (EDITOR='tee -a' visudo)")
         self.send_operns("echo 'vagrant ALL=(ALL) NOPASSWD: ALL' | (EDITOR='tee -a' visudo)")
 
         # Add public key, so users can ssh without a password
