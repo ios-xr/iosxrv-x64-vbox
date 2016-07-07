@@ -152,14 +152,16 @@ class XrLogin(object):
         self.send_operns("chmod 0600 ~vagrant/.ssh/authorized_keys")
         self.send_operns("chown -R vagrant:vagrant ~vagrant/.ssh/")
 
-        # Add user scratch space - should be able transfer a file to
-        # /misc/app_host/scratch using the scp with user vagrant
-        # E.g: scp -P 2200 Vagrantfile vagrant@localhost:/misc/app_host/scratch
-        self.send_operns("groupadd app_host")
-        self.send_operns("usermod -a -G app_host vagrant")
-        self.send_operns("mkdir -p /misc/app_host/scratch")
-        self.send_operns("chgrp -R app_host /misc/app_host/scratch")
-        self.send_operns("chmod 777 /misc/app_host/scratch")
+        output = self.send_operns('ls -ld /misc/app_host/scratch')
+        if not re.search('/misc/app_host/scratch', output):
+            # Add user scratch space - should be able transfer a file to
+            # /misc/app_host/scratch using the scp with user vagrant
+            # E.g: scp -P 2200 Vagrantfile vagrant@localhost:/misc/app_host/scratch
+            self.send_operns("groupadd app_host")
+            self.send_operns("usermod -a -G app_host vagrant")
+            self.send_operns("mkdir -p /misc/app_host/scratch")
+            self.send_operns("chgrp -R app_host /misc/app_host/scratch")
+            self.send_operns("chmod 777 /misc/app_host/scratch")
 
         # Add Cisco OpenDNS IPv4 nameservers as a default DNS resolver
         # almost all users who have internet connectivity will be able to reach those.
