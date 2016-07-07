@@ -172,8 +172,8 @@ Subject: A new IOS XRv (64-bit) vagrant box has been posted to artifactory %s
 Reason for update: %s
 \nVagrant Box: %s
 \nTo use:
-\n vagrant init xrv64
-\n vagrant box add --name xrv64 %s --force
+\n vagrant init 'IOS XRv'
+\n vagrant box add --name 'IOS XRv' %s --force
 \n vagrant up
 \n vagrant ssh
         """ % (sender, receiver, location, message, box_out, box_out)
