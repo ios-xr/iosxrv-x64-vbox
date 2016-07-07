@@ -193,12 +193,12 @@ def main(argv):
     if not os.path.exists(box_dir):
         os.makedirs(box_dir)
 
-    # Move existing box files. Maybe should just delete
+    # Delete existing Box
     if os.path.exists(box_out):
         os.remove(box_out)
         verboseprint('Found and deleted previous %s' % box_out)
 
-    # Move existing ova files. Maybe should just delete
+    # Delete existing OVA
     if os.path.exists(ova_out) and create_ova is True:
         os.remove(ova_out)
         verboseprint('Found and deleted previous %s' % ova_out)
