@@ -22,6 +22,7 @@ import subprocess
 import argparse
 import os
 from iosxr_iso2vbox import run
+import paramiko
 
 try:
     raw_input
@@ -57,7 +58,7 @@ def check_result(result, success_message):
         return False
 
 
-def bringup_vagrant(input_box):
+def bringup_vagrant():
     '''
     Bring up a vagrant box.
 
@@ -160,6 +161,7 @@ def test_xr():
     Verify show version.
     Verify show run.
     '''
+    global iosxr_port
 
     print('Testing XR Console...')
     iosxr_port = subprocess.check_output('vagrant port --guest 22', shell=True)
@@ -189,6 +191,15 @@ def test_xr():
         if check_result(output, 'Username vagrant found') is False:
             return False
         s.prompt()
+
+        if 'full' in input_box:
+            print('Check show run for grpc:')
+            s.sendline('show run grpc')
+            output = s.expect(['port 57777', pexpect.EOF, pexpect.TIMEOUT])
+            if check_result(output, 'grpc is configured') is False:
+                return False
+            s.prompt()
+
         s.logout()
     except pxssh.ExceptionPxssh as e:
         print("==>pxssh failed on login.")
@@ -198,8 +209,61 @@ def test_xr():
         return True
 
 
+def test_scp_to_scratch():
+    '''
+    Test scp'ing a file to IOS XR.
+    Not working yet.
+    '''
+
+    pathname = os.path.abspath(os.path.dirname(sys.argv[0]))
+    test_path = os.path.join(pathname, 'test.txt')
+
+    run('echo rich-test > %s' % test_path)
+
+    remote_path = '/misc/app_host/scratch/test.txt'
+    hostname = ''
+    username = 'vagrant'
+    password = 'vagrant'
+
+    ssh = paramiko.SSHClient()
+    ssh.load_host_keys(os.path.expanduser(os.path.join("~", ".ssh", "known_hosts")))
+    # s.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(hostname, iosxr_port, username, password, allow_agent=False, look_for_keys=False)
+
+    sftp = ssh.open_sftp()
+    sftp.put(test_path, remote_path)
+
+    sftp.close()
+    ssh.close()
+
+    linux_port = subprocess.check_output('vagrant port --guest 57722', shell=True)
+    print('Connecting to port %s' % linux_port)
+
+    try:
+        s = pxssh.pxssh()
+        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, linux_port)
+        s.prompt()
+        print('==>Successfully logged into XR Linux')
+
+        print('Check SCP file exists:')
+        s.sendline('grep "rich-test" /misc/app_host/scratch -c')
+        output = s.expect(['0', pexpect.EOF, pexpect.TIMEOUT])
+        if check_result(output, 'SCP file found') is False:
+            return False
+        s.prompt()
+        s.logout()
+    except pxssh.ExceptionPxssh as e:
+        print("==>pxssh failed on login.")
+        print(e)
+        return False
+    else:
+        print("==>SCP test is sane")
+        return True
+
+
 def main():
     # Get virtualbox
+    global input_box
     parser = argparse.ArgumentParser(description='Pass in a vagrant box')
     parser.add_argument("a", nargs='?', default="check_string_for_empty")
     args = parser.parse_args()
@@ -218,13 +282,16 @@ def main():
     run('vagrant destroy --force')
 
     # Bring the newly generated virtualbox up
-    bringup_vagrant(input_box)
+    bringup_vagrant()
 
     # Test IOS XR Linux
     result_linux = test_linux()
 
     # Test IOS XR Console
     result_xr = test_xr()
+
+    # Test scping to scratch space
+    # test_scp_to_scratch()
 
     # Testing finished - clean up now
     run('vagrant destroy --force')
