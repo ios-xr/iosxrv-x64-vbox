@@ -296,6 +296,12 @@ def main():
     # Testing finished - clean up now
     run('vagrant destroy --force')
 
+    # Clean up Vagrantfile
+    try:
+        os.remove('Vagrantfile')
+    except OSError:
+        pass
+
     print('result_linux=%s, result_xr=%s' % (result_linux, result_xr))
 
     if result_linux is False or result_xr is False:
