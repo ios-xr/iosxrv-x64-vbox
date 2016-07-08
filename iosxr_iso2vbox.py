@@ -62,11 +62,13 @@ and deployment.
 from __future__ import print_function
 import sys
 import os
-import getopt
 import time
 import subprocess
 import getpass
 import shlex
+import argparse
+from argparse import RawTextHelpFormatter
+import re
 
 # Telnet ports used to access IOS XR via socat
 console_port = 65000
@@ -95,43 +97,53 @@ def main(argv):
     copy_to_artifactory = False
     create_ova = False
     verbose = False
-    master_opts = '==> iosxr_iso2vbox.py [-i <Input ISO>] [-s <Remote Input ISO>] [-o, --ova], [-a, --artifactory] [-v, --verbose] [-h, --help]'
 
-    # Suck in the input ISO and handle errors
-    try:
-        opts, args = getopt.getopt(argv, 'hva:oi:s:', ['help', 'verbose', 'artifactory=', 'ova', 'iso=', 'scp='])
-    except getopt.GetoptError:
-        print(master_opts)
-        sys.exit(2)
-    for opt, arg in opts:
-        if opt in ('-h', '--help'):
-            print('==> A tool to create a VirtualBox box from an ISO')
-            print(master_opts)
-            print('==> E.g. iosxr-xrv64-vbox/iosxr_iso2vbox.py -iso iosxrv-fullk9-x64.iso')
-            print('==> E.g. iosxr-xrv64-vbox/iosxr_iso2vbox.py -scp server:<path>/iosxrv-fullk9-x64.iso')
-            sys.exit()
-        elif opt in ('-i', '--iso'):
-            input_iso = arg
-        elif opt in ('-s', '--scp'):
-            iso_to_scp = arg
-            cmdstring = 'scp %s@%s .' % (getpass.getuser(), iso_to_scp)
-            print('==> Will attempt to scp the remote image to current working dir. You may be required to enter your password.')
-            time.sleep(2)
-            print('==> %s\n' % cmdstring)
-            subprocess.call(cmdstring, shell=True)
-            input_iso = os.path.basename(iso_to_scp)
-        elif opt in ('-a', '--artifactory'):
-            copy_to_artifactory = True
-            reason = arg
-            if not reason:
-                reason = 'No reason for update specified'
-        elif opt in ('-v', '--verbose'):
-            verbose = True
-        elif opt in ('-o', '--ova'):
-            create_ova = True
+    parser = argparse.ArgumentParser(
+        formatter_class=RawTextHelpFormatter,
+        description='A tool to create an IOS XRv Vagrant VirtualBox box from ' +
+        'an IOS XRv ISO.\n' '\nThe ISO will be installed, booted, configured ' +
+        'and unit-tested. \n"vagrant ssh" provides access ' +
+        'to IOS XR Linux global-vrf namespace \nwith internet access.',
+        epilog="E.g.: iosxr-xrv64-vbox/iosxr_iso2vbox.py " +
+        "iosxrv-fullk9-x64.iso -a 'new image' -o -v")
+    parser.add_argument('ISO_FILE',
+                        help='local ISO filename or remote URI ISO filename...')
+    parser.add_argument('-a', '--artifactory', nargs='?',
+                        const='check_string_for_empty',
+                        help='add optional reason for uploading this box')
+    parser.add_argument('-o', '--create_ova', action='store_true',
+                        help='additionally use vboxmange to export an OVA')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='turn on verbose messages')
+
+    args = parser.parse_args()
+
+    # Handle Input ISO (Local or URI)
+    if re.search(':/', args.ISO_FILE):
+        # URI Image
+        cmdstring = 'scp %s@%s .' % (getpass.getuser(), args.ISO_FILE)
+        print('==> Will attempt to scp the remote image to current working dir. You may be required to enter your password.')
+        time.sleep(2)
+        print('==> %s\n' % cmdstring)
+        subprocess.call(cmdstring, shell=True)
+        input_iso = os.path.basename(args.ISO_FILE)
+    else:
+        # Local image
+        input_iso = args.ISO_FILE
+
+    # Handle artifactory
+    if args.artifactory is not None:
+        copy_to_artifactory = True
+        if args.artifactory is 'check_string_for_empty':
+            reason = 'No reason for update specified'
         else:
-            print(master_opts)
-            sys.exit()
+            reason = args.artifactory
+
+    # Handle create OVA
+    create_ova = args.create_ova
+
+    # Handle verbose - no special handling needed as boolean
+    verbose = args.verbose
 
     if not os.path.exists(input_iso):
         print('==>', input_iso, 'does not exist')
@@ -379,10 +391,9 @@ def main(argv):
         verboseprint('Created OVA %s' % ova_out)
 
     # Run basic sanity tests
-    verboseprint('Testing VirtualBox')
+    verboseprint('Running basic unit tests on VirtualBox...')
     iosxr_test_path = os.path.join(pathname, 'iosxr_test.py')
     cmdstring = "python %s %s" % (iosxr_test_path, box_out)
-    verboseprint("Running: '%s'" % cmdstring)
     result = (subprocess.check_output(cmdstring, shell=True))
     if result is False:
         # Fail noisily

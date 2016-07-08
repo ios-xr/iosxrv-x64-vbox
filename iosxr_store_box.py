@@ -33,25 +33,8 @@ from __future__ import print_function
 import sys
 import os
 import getopt
-import subprocess
 import smtplib
-
-
-def run(command_string, debug=False):
-    '''
-    Execute a CLI command string and return the result.
-
-    Note this does not handle operators which need whitespace.
-
-    In those cases the raw commands will need to be used.
-
-    E.g. passing grep 'a string separated by spaces'.
-    '''
-    argv = command_string.split()
-    if debug is True:
-        print ('argv: %s' % argv)
-    result = subprocess.check_output(argv)
-    return result
+from iosxr_iso2vbox import run
 
 
 def main(argv):
@@ -69,15 +52,19 @@ def main(argv):
 
     if artifactory_username is None:
         print('==> Please set ARTIFACTORY_USERNAME in your environment')
+        print('E.g. export "ARTIFACTORY_USERNAME=<username>"')
         sys.exit()
     if artifactory_password is None:
         print('==> Please set ARTIFACTORY_PASSWORD in your environment')
+        print('E.g. export "ARTIFACTORY_PASSWORD=<PASSWORD>"')
         sys.exit()
     if sender is None:
         print('==> Please set SENDER in your environment')
+        print('==> E.g. export "ARTIFACTORY_SENDER=$USER@me.com"')
         sys.exit()
     if receiver is None:
         print('==> Please set RECEIVER in your environment')
+        print('==> E.g. export "ARTIFACTORY_RECEIVER=updates@me.com"')
         sys.exit()
 
     # Suck in the input ISO and handle errors
@@ -154,6 +141,8 @@ def main(argv):
 
     if location is None:
         print('==> Please set LOCATION_RELEASE or LOCATION_SNAPSHOT in your environment')
+        print('==> E.g.: export "ARTIFACTORY_LOCATION_SNAPSHOT=http://location", or:')
+        print('==> E.g.: export "ARTIFACTORY_LOCATION_RELEASE=http://location"')
         sys.exit()
 
     box_out = os.path.join(location, boxname)
