@@ -67,7 +67,7 @@ import subprocess
 import getpass
 import shlex
 import argparse
-from argparse import RawTextHelpFormatter
+from argparse import RawDescriptionHelpFormatter
 import re
 
 # Telnet ports used to access IOS XR via socat
@@ -97,22 +97,25 @@ def main(argv):
     copy_to_artifactory = False
     create_ova = False
     verbose = False
+    artifactory_reason = ''
 
     parser = argparse.ArgumentParser(
-        formatter_class=RawTextHelpFormatter,
+        formatter_class=RawDescriptionHelpFormatter,
         description='A tool to create an IOS XRv Vagrant VirtualBox box from ' +
         'an IOS XRv ISO.\n' '\nThe ISO will be installed, booted, configured ' +
         'and unit-tested. \n"vagrant ssh" provides access ' +
         'to IOS XR Linux global-vrf namespace \nwith internet access.',
-        epilog="E.g.: iosxr-xrv64-vbox/iosxr_iso2vbox.py " +
-        "iosxrv-fullk9-x64.iso -a 'new image' -o -v")
+        epilog="E.g.:\n" +
+        "box build with local iso: iosxr-xrv64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso\n" +
+        "box build with remote iso: iosxr-xrv64-vbox/iosxr_iso2vbox.py user@server:/myboxes/iosxrv-fullk9-x64.iso\n" +
+        "box build with ova export, verbose and upload to artifactory: iosxr-xrv64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso -o -v -a 'New Image'\n")
     parser.add_argument('ISO_FILE',
                         help='local ISO filename or remote URI ISO filename...')
-    parser.add_argument('-a', '--artifactory', nargs='?',
-                        const='check_string_for_empty',
-                        help='add optional reason for uploading this box')
+    parser.add_argument('-a', '--artifactory', nargs='?', metavar="'New box reason'",
+                        const='No reason for update specified',
+                        help='Upload box to Artifactory. You can optionally specify a reason for uploading this box.')
     parser.add_argument('-o', '--create_ova', action='store_true',
-                        help='additionally use vboxmange to export an OVA')
+                        help='additionally use vboxmanage to export an OVA')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='turn on verbose messages')
 
@@ -123,7 +126,6 @@ def main(argv):
         # URI Image
         cmdstring = 'scp %s@%s .' % (getpass.getuser(), args.ISO_FILE)
         print('==> Will attempt to scp the remote image to current working dir. You may be required to enter your password.')
-        time.sleep(2)
         print('==> %s\n' % cmdstring)
         subprocess.call(cmdstring, shell=True)
         input_iso = os.path.basename(args.ISO_FILE)
@@ -134,10 +136,8 @@ def main(argv):
     # Handle artifactory
     if args.artifactory is not None:
         copy_to_artifactory = True
-        if args.artifactory is 'check_string_for_empty':
-            reason = 'No reason for update specified'
-        else:
-            reason = args.artifactory
+        if args.artifactory is not 'No reason for update specified':
+            artifactory_reason = args.artifactory
 
     # Handle create OVA
     create_ova = args.create_ova
@@ -425,7 +425,7 @@ def main(argv):
         if verbose is True:
             add_verbose = '-v'
 
-        cmdstring = "python %s -b %s  %s -m '%s'" % (iosxr_store_box_path, box_out, add_verbose, reason)
+        cmdstring = "python %s -b %s  %s -m '%s'" % (iosxr_store_box_path, box_out, add_verbose, artifactory_reason)
         subprocess.call(cmdstring, shell=True)
 
 if __name__ == '__main__':

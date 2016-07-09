@@ -51,21 +51,17 @@ def main(argv):
     receiver = os.environ.get('ARTIFACTORY_RECEIVER')
 
     if artifactory_username is None:
-        print('==> Please set ARTIFACTORY_USERNAME in your environment')
-        print('E.g. export "ARTIFACTORY_USERNAME=<username>"')
-        sys.exit()
+        sys.exit("==> Please set ARTIFACTORY_USERNAME in your environment\n"
+                 "E.g., 'export ARTIFACTORY_USERNAME=<username>'")
     if artifactory_password is None:
-        print('==> Please set ARTIFACTORY_PASSWORD in your environment')
-        print('E.g. export "ARTIFACTORY_PASSWORD=<PASSWORD>"')
-        sys.exit()
+        sys.exit("==> Please set ARTIFACTORY_PASSWORD in your environment\n"
+                 "E.g. export 'ARTIFACTORY_PASSWORD=<PASSWORD>'")
     if sender is None:
-        print('==> Please set SENDER in your environment')
-        print('==> E.g. export "ARTIFACTORY_SENDER=$USER@me.com"')
-        sys.exit()
+        sys.exit("==> Please set SENDER in your environment\n"
+                 "==> E.g. export 'ARTIFACTORY_SENDER=$USER@me.com'")
     if receiver is None:
-        print('==> Please set RECEIVER in your environment')
-        print('==> E.g. export "ARTIFACTORY_RECEIVER=updates@me.com"')
-        sys.exit()
+        sys.exit("==> Please set RECEIVER in your environment\n"
+                 "==> E.g. export 'ARTIFACTORY_RECEIVER=updates@me.com'")
 
     # Suck in the input ISO and handle errors
     try:
@@ -140,10 +136,9 @@ def main(argv):
         location = os.environ.get('ARTIFACTORY_LOCATION_SNAPSHOT')
 
     if location is None:
-        print('==> Please set LOCATION_RELEASE or LOCATION_SNAPSHOT in your environment')
-        print('==> E.g.: export "ARTIFACTORY_LOCATION_SNAPSHOT=http://location", or:')
-        print('==> E.g.: export "ARTIFACTORY_LOCATION_RELEASE=http://location"')
-        sys.exit()
+        sys.exit("==> Please set LOCATION_RELEASE or LOCATION_SNAPSHOT in your environment\n"
+                 "==> E.g.: export 'ARTIFACTORY_LOCATION_SNAPSHOT=http://location', or: \n"
+                 "==> E.g.: export 'ARTIFACTORY_LOCATION_RELEASE=http://location'")
 
     box_out = os.path.join(location, boxname)
 
