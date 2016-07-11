@@ -41,7 +41,7 @@ from argparse import RawDescriptionHelpFormatter
 def main(argv):
     input_box = ''
     verbose = False
-    test = False
+    test_only = False
     artifactory_release = False
 
     # Get info from environment and check it's all there
@@ -67,8 +67,7 @@ def main(argv):
     parser = argparse.ArgumentParser(
         formatter_class=RawDescriptionHelpFormatter,
         description='A tool to upload an image to a maven repo like artifactory ' +
-        'using curl, the image typically being a vagrant virtualbox, but could ' +
-        'be anything.\n' +
+        'using curl, the image typically being a vagrant virtualbox.\n' +
         'User can select snapshot or release, the release images get synced to ' +
         'devhub.cisco.com - where they are available to customers.\n' +
         'This tool also sends an email out to an email address or an alias to ' +
@@ -88,15 +87,15 @@ def main(argv):
 
     parser.add_argument('BOX_FILE',
                         help='BOX filename')
-    parser.add_argument('-m', '--message', nargs='?', metavar="'New box reason'",
-                        const='No reason for update specified',
-                        help='Optionally specify a reason for uploading this box.')
+    parser.add_argument('-m', '--message',
+                        default='No reason for update specified',
+                        help='Optionally specify a reason for uploading this box')
     parser.add_argument('-r', '--release', action='store_true',
-                        help='store in appdevci-release where it will get synced to devhug')
+                        help="upload to '$ARTIFACTORY_LOCATION_RELEASE' rather than '$ARTIFACTORY_LOCATION_SNAPSHOT'.")
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='turn on verbose messages')
-    parser.add_argument('-t', '--test', action='store_true',
-                        help='test only')
+    parser.add_argument('-t', '--test_only', action='store_true',
+                        help='test only, do not store the box or send an email')
 
     args = parser.parse_args()
 
@@ -107,7 +106,7 @@ def main(argv):
     message = args.message
     artifactory_release = args.release
     verbose = args.verbose
-    test = args.test
+    test_only = args.test_only
 
     if not input_box:
         print('No input box detected, use -b to specify a box')
@@ -142,7 +141,7 @@ def main(argv):
     verboseprint("Sender is:    '%s'" % sender)
     verboseprint("Receiver is:  '%s'" % receiver)
     verboseprint("Release is:   '%s'" % artifactory_release)
-    verboseprint("Test is:      '%s'" % test)
+    verboseprint("Test Only is: '%s'" % test_only)
 
     '''
     Copy the box to artifactory. This will most likely change to Atlas, or maybe both.
@@ -161,7 +160,7 @@ def main(argv):
 
     box_out = os.path.join(location, boxname)
 
-    if test is True:
+    if test_only is True:
         verboseprint('Test only: copying %s to %s' % (input_box, box_out))
     else:
         verboseprint('Copying %s to %s' % (box_out, box_out))
@@ -184,7 +183,7 @@ Reason for update: %s
     verboseprint('Email is:')
     print(email)
 
-    if test is False:
+    if test_only is False:
         try:
             smtpObj = smtplib.SMTP('mail.cisco.com')
             smtpObj.sendmail(sender, receiver, email)
