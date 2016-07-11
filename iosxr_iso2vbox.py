@@ -168,6 +168,27 @@ def main(argv):
         def verboseprint(*args):
             pass
 
+    def cleanup_vms(name, box_name):
+        '''
+        Cleans up any running box with the passed in name.
+        Unregisters and deletes any box with the passed in box_name
+        '''
+        # Remove any running boxes with the same name
+        vms_list_running = str(run('vboxmanage list runningvms'))
+        if name in vms_list_running:
+            verboseprint("'%s' is running, powering off..." % name)
+            run('VBoxManage controlvm %s poweroff' % name)
+        else:
+            verboseprint("'%s' is not running, nothing to poweroff" % name)
+
+        # Unregister and delete any boxes with the same name
+        vms_list = str(run('vboxmanage list vms'))
+        if name in vms_list:
+            verboseprint("'%s' is registered, unregistering and deleting" % name)
+            run('VBoxManage unregistervm %s --delete' % box_name)
+        else:
+            verboseprint("'%s' is not registered, nothing to unregister and delete" % name)
+
     verboseprint('Input ISO is %s' % input_iso)
 
     # Set the RAM according to mini of full ISO
@@ -219,22 +240,8 @@ def main(argv):
     verboseprint('Destroy default box')
     run('vagrant destroy --force')
 
-    # Remove any running boxes with the same name
-    vms_list_running = str(run('vboxmanage list runningvms'))
-    if vmname in vms_list_running:
-        verboseprint('is running, powering off...')
-        time.sleep(2)
-        run('VBoxManage controlvm %s poweroff' % vmname)
-
-    # Unregister and delete any boxes with the same name
-    vms_list = str(run('vboxmanage list vms'))
-    if vmname in vms_list:
-        verboseprint('%s exists, cleaning up...' % vmname)
-        time.sleep(2)
-        verboseprint('unregister VM')
-        run('VBoxManage unregistervm %s --delete' % vbox)
-    else:
-        verboseprint('%s does not exist, nothing to clean up' % vmname)
+    # Clean up existing vm's
+    cleanup_vms(vmname, vbox)
 
     # Remove stale SSH entry
     verboseprint('Removing stale SSH entries')
@@ -414,6 +421,9 @@ def main(argv):
 
     verboseprint('Note that both the XR Console and the XR linux shell username and password is vagrant/vagrant')
 
+    # Clean up existing vm's
+    cleanup_vms(vmname, vbox)
+
     # Clean up Vagrantfile
     try:
         os.remove('Vagrantfile')
@@ -425,7 +435,7 @@ def main(argv):
         if verbose is True:
             add_verbose = '-v'
 
-        cmdstring = "python %s -b %s  %s -m '%s'" % (iosxr_store_box_path, box_out, add_verbose, artifactory_reason)
+        cmdstring = "python %s %s %s -m '%s'" % (iosxr_store_box_path, box_out, add_verbose, artifactory_reason)
         subprocess.call(cmdstring, shell=True)
 
 if __name__ == '__main__':

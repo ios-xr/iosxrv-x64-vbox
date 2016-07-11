@@ -32,16 +32,16 @@ ARTIFACTORY_RECEIVER
 from __future__ import print_function
 import sys
 import os
-import getopt
 import smtplib
 from iosxr_iso2vbox import run
+import argparse
+from argparse import RawDescriptionHelpFormatter
 
 
 def main(argv):
     input_box = ''
     verbose = False
-    test = False
-    master_opts = '==> iosxr_store_box.py [-b box] [-m, --message], [-r, --release] [-v, --verbose] [-h, --help] [-t, --test]'
+    test_only = False
     artifactory_release = False
 
     # Get info from environment and check it's all there
@@ -63,32 +63,50 @@ def main(argv):
         sys.exit("==> Please set RECEIVER in your environment\n"
                  "==> E.g. export 'ARTIFACTORY_RECEIVER=updates@me.com'")
 
-    # Suck in the input ISO and handle errors
-    try:
-        opts, args = getopt.getopt(argv, 'b:m:rvht', ['box=', 'message=', 'release', 'verbose', 'help', 'test'])
-    except getopt.GetoptError:
-        print('Input error')
-        print(master_opts)
-        sys.exit(2)
-    for opt, arg in opts:
-        if opt in ('-h', '--help'):
-            print('==> A tool to copy a box to a maven-like repo')
-            print(master_opts)
-            print('==> E.g. iosxrv-x64-vbox/iosxr_store_box.py -b iosxrv-fullk9-x64.box --release, --message "A new box because..."')
-            print('==> E.g. iosxrv-x64-vbox/iosxr_store_box.py -b iosxrv-fullk9-x64.box -r -v -m "Latest box for release."')
-            sys.exit()
-        if opt in ('-b', '--box'):
-            input_box = arg
-        if opt in ('-m', '--message'):
-            message = arg
-            if not message:
-                message = 'No reason for update specified'
-        elif opt in ('-r', '--release'):
-            artifactory_release = True
-        elif opt in ('-v', '--verbose'):
-            verbose = True
-        elif opt in ('-t', '--test'):
-            test = True
+    # Suck in the input BOX and handle errors
+    parser = argparse.ArgumentParser(
+        formatter_class=RawDescriptionHelpFormatter,
+        description='A tool to upload an image to a maven repo like artifactory ' +
+        'using curl, the image typically being a vagrant virtualbox.\n' +
+        'User can select snapshot or release, the release images get synced to ' +
+        'devhub.cisco.com - where they are available to customers.\n' +
+        'This tool also sends an email out to an email address or an alias to ' +
+        'inform them of the new image.\n' +
+        'It is designed to be called from other tools, like iosxr_ios2vbox.py.\n\n' +
+        'It will rely on the following environment variables to work:\n ' +
+        'ARTIFACTORY_USERNAME\n ' +
+        'ARTIFACTORY_PASSWORD\n ' +
+        'ARTIFACTORY_LOCATION_SNAPSHOT\n ' +
+        'ARTIFACTORY_LOCATION_RELEASE\n ' +
+        'ARTIFACTORY_SENDER\n ' +
+        'ARTIFACTORY_RECEIVER',
+        epilog="E.g.:\n" +
+        "iosxrv-x64-vbox/iosxr_store_box.py -b iosxrv-fullk9-x64.box --release --verbose --message 'A new box because...'\n" +
+        "iosxrv-x64-vbox/iosxr_store_box.py -b iosxrv-fullk9-x64.box --release, --message 'A new box because...'\n"
+        "iosxrv-x64-vbox/iosxr_store_box.py -b iosxrv-fullk9-x64.box -r -v -m 'Latest box for release.'\n")
+
+    parser.add_argument('BOX_FILE',
+                        help='BOX filename')
+    parser.add_argument('-m', '--message',
+                        default='No reason for update specified',
+                        help='Optionally specify a reason for uploading this box')
+    parser.add_argument('-r', '--release', action='store_true',
+                        help="upload to '$ARTIFACTORY_LOCATION_RELEASE' rather than '$ARTIFACTORY_LOCATION_SNAPSHOT'.")
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='turn on verbose messages')
+    parser.add_argument('-t', '--test_only', action='store_true',
+                        help='test only, do not store the box or send an email')
+
+    args = parser.parse_args()
+
+    input_box = args.BOX_FILE
+    if args.message is None:
+        # User did not add -m at all - and we always need a message
+        args.message = 'No reason for update specified'
+    message = args.message
+    artifactory_release = args.release
+    verbose = args.verbose
+    test_only = args.test_only
 
     if not input_box:
         print('No input box detected, use -b to specify a box')
@@ -123,7 +141,7 @@ def main(argv):
     verboseprint("Sender is:    '%s'" % sender)
     verboseprint("Receiver is:  '%s'" % receiver)
     verboseprint("Release is:   '%s'" % artifactory_release)
-    verboseprint("Test is:      '%s'" % test)
+    verboseprint("Test Only is: '%s'" % test_only)
 
     '''
     Copy the box to artifactory. This will most likely change to Atlas, or maybe both.
@@ -142,7 +160,7 @@ def main(argv):
 
     box_out = os.path.join(location, boxname)
 
-    if test is True:
+    if test_only is True:
         verboseprint('Test only: copying %s to %s' % (input_box, box_out))
     else:
         verboseprint('Copying %s to %s' % (box_out, box_out))
@@ -165,7 +183,7 @@ Reason for update: %s
     verboseprint('Email is:')
     print(email)
 
-    if test is False:
+    if test_only is False:
         try:
             smtpObj = smtplib.SMTP('mail.cisco.com')
             smtpObj.sendmail(sender, receiver, email)
