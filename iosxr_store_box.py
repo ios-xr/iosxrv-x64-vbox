@@ -36,6 +36,7 @@ import smtplib
 from iosxr_iso2vbox import run
 import argparse
 from argparse import RawDescriptionHelpFormatter
+import logging
 
 
 def main(argv):
@@ -118,30 +119,21 @@ def main(argv):
 
     boxname = os.path.basename(os.path.splitext(input_box)[0]) + '.box'
 
-    prog = 'iosxr_store_box.py'
-
-    # If verbose is set then print
     if verbose:
-        def verboseprint(*args):
-            '''
-            If user runs with -v or -verbose print logs
-
-            Print each argument separately so caller doesn't need to
-            stuff everything to be printed into a single string
-            '''
-            print('==> %s: ' % prog, end="")
-            for arg in args:
-                print(arg,)
+        # Display all messages
+        logging.basicConfig(level=logging.DEBUG)
     else:
-        def verboseprint(*args):
-            pass
+        # Display info, warnings and errors
+        logging.basicConfig(level=logging.INFO)
 
-    verboseprint("Input box is: '%s'" % input_box)
-    verboseprint("Message is:   '%s'" % message)
-    verboseprint("Sender is:    '%s'" % sender)
-    verboseprint("Receiver is:  '%s'" % receiver)
-    verboseprint("Release is:   '%s'" % artifactory_release)
-    verboseprint("Test Only is: '%s'" % test_only)
+    logger = logging.getLogger(__name__)
+
+    logger.debug("Input box is: '%s'" % input_box)
+    logger.debug("Message is:   '%s'" % message)
+    logger.debug("Sender is:    '%s'" % sender)
+    logger.debug("Receiver is:  '%s'" % receiver)
+    logger.debug("Release is:   '%s'" % artifactory_release)
+    logger.debug("Test Only is: '%s'" % test_only)
 
     '''
     Copy the box to artifactory. This will most likely change to Atlas, or maybe both.
@@ -161,9 +153,9 @@ def main(argv):
     box_out = os.path.join(location, boxname)
 
     if test_only is True:
-        verboseprint('Test only: copying %s to %s' % (input_box, box_out))
+        logger.debug('Test only: copying %s to %s' % (input_box, box_out))
     else:
-        verboseprint('Copying %s to %s' % (box_out, box_out))
+        logger.debug('Copying %s to %s' % (box_out, box_out))
         run('curl -X PUT -u %s:%s -T %s %s' % (artifactory_username, artifactory_password, input_box, box_out))
 
     # Format an email message and send to the interest list
@@ -180,18 +172,19 @@ Reason for update: %s
 \n vagrant ssh
         """ % (sender, receiver, location, message, box_out, box_out)
 
-    verboseprint('Email is:')
-    print(email)
+    if args.verbose or test_only:
+        print('Email is:')
+        print(email)
 
     if test_only is False:
         try:
             smtpObj = smtplib.SMTP('mail.cisco.com')
             smtpObj.sendmail(sender, receiver, email)
-            verboseprint('Successfully sent update email')
+            logger.info('Successfully sent update email')
         except smtplib.SMTPException:
-            verboseprint('Error: unable to send update email')
-    else:
-        verboseprint('Test only: Not sending email')
+            logger.error('Unable to send update email')
+        else:
+            logger.debug('Test only: Not sending email')
 
 if __name__ == '__main__':
     main(sys.argv[1:])

@@ -69,27 +69,52 @@ import shlex
 import argparse
 from argparse import RawDescriptionHelpFormatter
 import re
+import logging
 
 # Telnet ports used to access IOS XR via socat
 console_port = 65000
 aux_port = 65001
 
 
-def run(command_string, debug=False):
+def run_process_quietly(cmd_string, debug=False):
     '''
-    Execute a CLI command string and return the result.
+    Execute a CLI command in the 'background' as process.
+    '''
+    argv = shlex.split(cmd_string)
+    if debug is True:
+        print ('argv: %s' % argv)
+    with open(os.devnull, 'w') as fp:
+        subprocess.Popen((argv), stdout=fp)
+    time.sleep(2)
 
+
+def run_get_output(cmd_string, debug=False):
+    '''
+    Execute a CLI command string and return the output.
     Note this does not handle operators which need whitespace.
-
     In those cases the raw commands will need to be used.
-
     E.g. passing grep 'a string separated by spaces'.
     '''
-    argv = command_string.split()
+    argv = cmd_string.split()
     if debug is True:
         print ('argv: %s' % argv)
     result = subprocess.check_output(argv)
     return result
+
+
+def run(cmd_string, debug=False):
+    '''
+    Execute a CLI command string quietly and return the result.
+    Note this does not handle operators which need whitespace.
+    In those cases the raw commands will need to be used.
+    E.g. passing grep 'a string separated by spaces'.
+    This is the bash equivalent of command > /dev/null.
+    '''
+    argv = cmd_string.split()
+    if debug is True:
+        print ('argv: %s' % argv)
+    FNULL = open(os.devnull, 'w')
+    return(subprocess.call(argv, stdout=FNULL, stderr=subprocess.STDOUT))
 
 
 def main(argv):
@@ -124,10 +149,10 @@ def main(argv):
     # Handle Input ISO (Local or URI)
     if re.search(':/', args.ISO_FILE):
         # URI Image
-        cmdstring = 'scp %s@%s .' % (getpass.getuser(), args.ISO_FILE)
+        cmd_string = 'scp %s@%s .' % (getpass.getuser(), args.ISO_FILE)
         print('==> Will attempt to scp the remote image to current working dir. You may be required to enter your password.')
-        print('==> %s\n' % cmdstring)
-        subprocess.call(cmdstring, shell=True)
+        print('==> %s\n' % cmd_string)
+        subprocess.call(cmd_string, shell=True)
         input_iso = os.path.basename(args.ISO_FILE)
     else:
         # Local image
@@ -152,21 +177,18 @@ def main(argv):
     # Set Virtualbox VM name from the input ISO
     vmname = os.path.basename(os.path.splitext(input_iso)[0])
 
-    # If verbose is set then print
+    # Set logging level to >DEBUG or >INFO
+    # error > warning > info > debug
+    # setLevel(logging.INFO) then you'll see error/warning/info messages but
+    # not debug messages
     if verbose:
-        def verboseprint(*args):
-            '''
-            If user runs with -v or -verbose print logs
-
-            Print each argument separately so caller doesn't need to
-            stuff everything to be printed into a single string
-            '''
-            print('==> %s: ' % vmname, end="")
-            for arg in args:
-                print(arg,)
+        # Display all messages
+        logging.basicConfig(level=logging.DEBUG)
     else:
-        def verboseprint(*args):
-            pass
+        # Display info, warnings and errors
+        logging.basicConfig(level=logging.INFO)
+
+    logger = logging.getLogger(__name__)
 
     def cleanup_vms(name, box_name):
         '''
@@ -174,36 +196,38 @@ def main(argv):
         Unregisters and deletes any box with the passed in box_name
         '''
         # Remove any running boxes with the same name
-        vms_list_running = str(run('vboxmanage list runningvms'))
+        vms_list_running = str(run_get_output('vboxmanage list runningvms'))
         if name in vms_list_running:
-            verboseprint("'%s' is running, powering off..." % name)
+            logger.debug("'%s' is running, powering off..." % name)
             run('VBoxManage controlvm %s poweroff' % name)
         else:
-            verboseprint("'%s' is not running, nothing to poweroff" % name)
+            logger.debug("'%s' is not running, nothing to poweroff" % name)
 
         # Unregister and delete any boxes with the same name
-        vms_list = str(run('vboxmanage list vms'))
+        vms_list = str(run_get_output('vboxmanage list vms'))
         if name in vms_list:
-            verboseprint("'%s' is registered, unregistering and deleting" % name)
+            logger.debug("'%s' is registered, unregistering and deleting" % name)
             run('VBoxManage unregistervm %s --delete' % box_name)
         else:
-            verboseprint("'%s' is not registered, nothing to unregister and delete" % name)
+            logger.debug("'%s' is not registered, nothing to unregister and delete" % name)
 
-    verboseprint('Input ISO is %s' % input_iso)
+    logger.debug('Input ISO is %s' % input_iso)
 
     # Set the RAM according to mini of full ISO
     if 'mini' in input_iso:
         ram = 3072
-        verboseprint('%s is a mini image, RAM allocated is %s MB' % (input_iso, ram))
+        logger.debug('%s is a mini image, RAM allocated is %s MB' % (input_iso, ram))
     elif 'full' in input_iso:
         ram = 4096
-        verboseprint('%s is a full image, RAM allocated is %s MB' % (input_iso, ram))
+        logger.debug('%s is a full image, RAM allocated is %s MB' % (input_iso, ram))
     else:
-        verboseprint('%s is neither a mini nor a full image. Abort' % input_iso)
+        logger.debug('%s is neither a mini nor a full image. Abort' % input_iso)
         sys.exit()
 
+    logger.info('Creating Vagrant VirtualBox')
+
     version = str(subprocess.check_output('VBoxManage -v', shell=True))
-    verboseprint('Virtual Box Manager Version: %s' % version)
+    logger.debug('Virtual Box Manager Version: %s' % version)
 
     # Set up paths
     base_dir = os.path.join(os.getcwd(), 'machines')
@@ -214,11 +238,11 @@ def main(argv):
     ova_out = os.path.join(box_dir, vmname + '.ova')
     pathname = os.path.abspath(os.path.dirname(sys.argv[0]))
 
-    verboseprint('pathname: %s' % pathname)
-    verboseprint('VM Name:  %s' % vmname)
-    verboseprint('base_dir: %s' % base_dir)
-    verboseprint('box_dir:  %s' % box_dir)
-    verboseprint('box_out:  %s' % box_out)
+    logger.debug('pathname: %s' % pathname)
+    logger.debug('VM Name:  %s' % vmname)
+    logger.debug('base_dir: %s' % base_dir)
+    logger.debug('box_dir:  %s' % box_dir)
+    logger.debug('box_out:  %s' % box_out)
 
     if not os.path.exists(base_dir):
         os.makedirs(base_dir)
@@ -229,44 +253,44 @@ def main(argv):
     # Delete existing Box
     if os.path.exists(box_out):
         os.remove(box_out)
-        verboseprint('Found and deleted previous %s' % box_out)
+        logger.debug('Found and deleted previous %s' % box_out)
 
     # Delete existing OVA
     if os.path.exists(ova_out) and create_ova is True:
         os.remove(ova_out)
-        verboseprint('Found and deleted previous %s' % ova_out)
+        logger.debug('Found and deleted previous %s' % ova_out)
 
     # Destroy default vagrant box
-    verboseprint('Destroy default box')
-    run('vagrant destroy --force')
+    # logger.debug('Destroy default box')
+    # run('vagrant destroy --force')
 
     # Clean up existing vm's
     cleanup_vms(vmname, vbox)
 
     # Remove stale SSH entry
-    verboseprint('Removing stale SSH entries')
+    logger.debug('Removing stale SSH entries')
     run('ssh-keygen -R [localhost]:2222')
     run('ssh-keygen -R [localhost]:2223')
 
     # Create and register a new VirtualBox VM
-    verboseprint('Create VM')
+    logger.debug('Create VM')
     run('VBoxManage createvm --name %s --ostype Linux26_64 --basefolder %s' % (vmname, base_dir))
 
-    verboseprint('Register VM')
+    logger.debug('Register VM')
     run('VBoxManage registervm %s ' % vbox)
 
     # Setup memory, display, cpus etc
-    verboseprint('VRAM 12')
+    logger.debug('VRAM 12')
     run('VBoxManage modifyvm %s --vram 12' % vmname)
 
-    verboseprint('Add ACPI')
+    logger.debug('Add ACPI')
     run('VBoxManage modifyvm %s --memory %s --acpi on' % (vmname, ram))
 
-    verboseprint('Add two CPUs')
+    logger.debug('Add two CPUs')
     run('VBoxManage modifyvm %s --cpus 2' % vmname)
 
     # Setup networking - including ssh
-    verboseprint('Create four NICs')
+    logger.debug('Create four NICs')
     run('VBoxManage modifyvm %s --nic1 nat --nictype1 virtio' % vmname)
     run('VBoxManage modifyvm %s --nic2 nat --nictype2 virtio' % vmname)
     run('VBoxManage modifyvm %s --nic3 nat --nictype3 virtio' % vmname)
@@ -296,11 +320,11 @@ def main(argv):
     # Option 2: Connect via socat (using this for iosxr_pexpect.py connect
     # as telnet has double echo issue)
     # But can still use telnet in conjunction with socat
-    # cmdstring='VBoxManage modifyvm %s --uart1 0x3f8 4 --uartmode1 server /tmp/serial1' % vmname
-    verboseprint('Add a console port')
+    # cmd_string='VBoxManage modifyvm %s --uart1 0x3f8 4 --uartmode1 server /tmp/serial1' % vmname
+    logger.debug('Add a console port')
     run('VBoxManage modifyvm %s --uart1 0x3f8 4 --uartmode1 tcpserver %s' % (vmname, console_port))
 
-    verboseprint('Add an aux port')
+    logger.debug('Add an aux port')
     run('VBoxManage modifyvm %s --uart2 0x2f8 3 --uartmode2 tcpserver %s' % (vmname, aux_port))
 
     # Option 3: Connect via telnet
@@ -308,118 +332,128 @@ def main(argv):
     # VBoxManage modifyvm $VMNAME --uart2 0x2f8 3 --uartmode2 tcpserver 6001
 
     # Setup storage
-    verboseprint('Create a HDD')
+    logger.debug('Create a HDD')
     run('VBoxManage createhd --filename %s --size 46080' % vdi)
 
-    verboseprint('Add IDE Controller')
+    logger.debug('Add IDE Controller')
     run('VBoxManage storagectl %s --name IDE_Controller --add ide' % vmname)
 
-    verboseprint('Attach HDD')
+    logger.debug('Attach HDD')
     run('VBoxManage storageattach %s --storagectl IDE_Controller --port 0 --device 0 --type hdd --medium %s' % (vmname, vdi))
 
-    verboseprint('VM HD info: ')
+    logger.debug('VM HD info: ')
     run('VBoxManage showhdinfo %s' % vdi)
 
-    verboseprint('Add DVD drive')
+    logger.debug('Add DVD drive')
     run('VBoxManage storageattach %s --storagectl IDE_Controller --port 1 --device 0 --type dvddrive --medium %s' % (vmname, input_iso))
 
     # Change boot order to hd then dvd
-    verboseprint('Boot order disk first')
+    logger.debug('Boot order disk first')
     run('vboxmanage modifyvm %s --boot1 disk' % vmname)
 
-    verboseprint('Boot order DVD second')
+    logger.debug('Boot order DVD second')
     run('vboxmanage modifyvm %s --boot2 dvd' % vmname)
 
     # Print some information about the VM
-    verboseprint('VM Info:')
+    logger.debug('VM Info:')
     run('VBoxManage showvminfo %s' % vmname)
 
-    # Start the VM for installation of ISO - must be started in the background
-    verboseprint('Starting VM...')
-    cmdstring = ('VBoxHeadless --startvm %s' % vmname)
-    args = shlex.split(cmdstring)
-    subprocess.Popen(args)
-    time.sleep(2)
+    # Start the VM for installation of ISO - must be started as a sub process
+    logger.debug('Starting VM...')
+    cmd_string = ('VBoxHeadless --startvm %s' % vmname)
+    run_process_quietly(cmd_string)
 
     while True:
-        vms_list = str(run('VBoxManage showvminfo %s' % vmname))
+        vms_list = str(run_get_output('VBoxManage showvminfo %s' % vmname))
         if 'running (since' in vms_list:
-            verboseprint('Successfully started to boot VM disk image')
+            logger.debug('Successfully started to boot VM disk image')
             break
         else:
-            verboseprint('Failed to install VM disk image\n')
+            logger.debug('Failed to install VM disk image\n')
             continue
 
     # Use iosxr_pexpect.py to bring up XR and do some initial config.
     # Using socat to do the connection as telnet has an
     # odd double return on vbox
-    verboseprint('Bringing up with iosxr_pexpect.py to install to disk and configure')
+    logger.info('Bringing up with iosxr_pexpect.py to install to disk and configure')
     iosxr_pexpect_path = os.path.join(pathname, 'iosxr_pexpect.py')
-    cmdstring = "python %s -cmds 'socat TCP:localhost:%s -,raw,echo=0,escape=0x1d' -config iosxr_setup" % (iosxr_pexpect_path, console_port)
-    subprocess.call(cmdstring, shell=True)
-    # Todo: this isn't suppressing the output
-    # subprocess.call(cmdstring, shell=True, stdout=open(os.devnull, 'wb'))
+    if verbose is True:
+        verbose_str = '-v'
+        verbose_pipe = ''
+    else:
+        # Shhhh...
+        verbose_str = ''
+        verbose_pipe = '>/dev/null 2>&1'
+
+    cmd_string = "python %s %s -cmds 'socat TCP:localhost:%s -,raw,echo=0,escape=0x1d' -config iosxr_setup" % (verbose_str, iosxr_pexpect_path, console_port)
+    # Call socat connection from a script so it can be run in the background
+    f = open('runme.sh', 'w')
+    f.write(cmd_string)
+    f.close()
+    rc = subprocess.call("chmod 766 ./runme.sh; ./runme.sh %s" % verbose_pipe, shell=True)
+    if rc == 0:
+        sys.exit('Configuring XR failed, exiting')
 
     # Powerdown VM prior to exporting
-    verboseprint('Waiting for machine to shutdown')
+    logger.debug('Waiting for machine to shutdown')
     run('VBoxManage controlvm %s poweroff' % vmname)
 
     while True:
-        vms_list_running = str(run('vboxmanage list runningvms'))
+        vms_list_running = str(run_get_output('vboxmanage list runningvms'))
 
         if vmname in vms_list_running:
-            verboseprint('Still shutting down')
+            logger.debug('Still shutting down')
             sys.exit(1)
         else:
-            verboseprint('Successfully shut down')
+            logger.debug('Successfully shut down')
             break
 
     # Disable uart before exporting
-    verboseprint('Remove serial uarts before exporting')
+    logger.debug('Remove serial uarts before exporting')
     run('VBoxManage modifyvm %s --uart1 off' % vmname)
     run('VBoxManage modifyvm %s --uart2 off' % vmname)
 
     # Potentially shrink vm
-    verboseprint('Compact VDI')
+    logger.debug('Compact VDI')
     run('VBoxManage modifymedium --compact %s' % vdi)
 
-    verboseprint('Creating Virtualbox')
+    logger.debug('Creating Virtualbox')
 
     # Add in embedded Vagrantfile
     vagrantfile_pathname = os.path.join(pathname, 'include', 'embedded_vagrantfile')
 
     run('vagrant package --base %s --vagrantfile %s --output %s' % (vmname, vagrantfile_pathname, box_out))
-    verboseprint('Created: %s' % box_out)
+    logger.info('Created: %s' % box_out)
 
     # Create OVA
     if create_ova is True:
-        verboseprint('Creating OVA %s' % ova_out)
+        logger.info('Creating OVA %s' % ova_out)
         run('VBoxManage export %s --output %s' % (vmname, ova_out))
-        verboseprint('Created OVA %s' % ova_out)
+        logger.debug('Created OVA %s' % ova_out)
 
     # Run basic sanity tests
-    verboseprint('Running basic unit tests on VirtualBox...')
+    logger.info('Running basic unit tests on VirtualBox...')
     iosxr_test_path = os.path.join(pathname, 'iosxr_test.py')
-    cmdstring = "python %s %s" % (iosxr_test_path, box_out)
-    result = (subprocess.check_output(cmdstring, shell=True))
+    cmd_string = "python %s %s" % (iosxr_test_path, box_out)
+    result = (subprocess.check_output(cmd_string, shell=True))
     if result is False:
         # Fail noisily
         sys.exit('Failed basic test, box %s is not sane' % box_out)
     else:
-        verboseprint('Passed basic test, box %s is sane' % box_out)
+        logger.info('Passed basic test, box %s is sane' % box_out)
 
-    verboseprint('Single node use:')
-    verboseprint(" vagrant init 'IOS XRv'")
-    verboseprint(" vagrant box add --name 'IOS XRv' %s --force" % box_out)
-    verboseprint(' vagrant up')
+    logger.debug('Single node use:')
+    logger.debug(" vagrant init 'IOS XRv'")
+    logger.debug(" vagrant box add --name 'IOS XRv' %s --force" % box_out)
+    logger.debug(' vagrant up')
 
-    verboseprint('Multinode use:')
-    verboseprint(" Copy './iosxrv-x64-vbox/vagrantfiles/simple-mixed-topo/Vagrantfile' to the directory running vagrant and do:")
-    verboseprint(" vagrant box add --name 'IOS XRv' %s --force" % box_out)
-    verboseprint(' vagrant up')
-    verboseprint(" Or: 'vagrant up rtr1', 'vagrant up rtr2'")
+    logger.debug('Multinode use:')
+    logger.debug(" Copy './iosxrv-x64-vbox/vagrantfiles/simple-mixed-topo/Vagrantfile' to the directory running vagrant and do:")
+    logger.debug(" vagrant box add --name 'IOS XRv' %s --force" % box_out)
+    logger.debug(' vagrant up')
+    logger.debug(" Or: 'vagrant up rtr1', 'vagrant up rtr2'")
 
-    verboseprint('Note that both the XR Console and the XR linux shell username and password is vagrant/vagrant')
+    logger.debug('Note that both the XR Console and the XR linux shell username and password is vagrant/vagrant')
 
     # Clean up existing vm's
     cleanup_vms(vmname, vbox)
@@ -431,12 +465,13 @@ def main(argv):
         pass
 
     if copy_to_artifactory is True:
+        logger.info('Copying Vagrant Virtualbox to Artifactory')
         iosxr_store_box_path = os.path.join(pathname, 'iosxr_store_box.py')
         if verbose is True:
             add_verbose = '-v'
 
-        cmdstring = "python %s %s %s -m '%s'" % (iosxr_store_box_path, box_out, add_verbose, artifactory_reason)
-        subprocess.call(cmdstring, shell=True)
+        cmd_string = "python %s %s %s -m '%s'" % (iosxr_store_box_path, box_out, add_verbose, artifactory_reason)
+        subprocess.call(cmd_string, shell=True)
 
 if __name__ == '__main__':
     main(sys.argv[1:])

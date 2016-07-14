@@ -166,7 +166,7 @@ class IosxrPexpect(object):
         def log(self, txt):
 
             msg = "%s: %s" % (self.name, txt)
-            self.node.parent.logger.info(msg)
+            self.node.parent.logger.debug(msg)
 
         #
         # API to allow tester to raise failure and exit the script
@@ -227,13 +227,13 @@ class IosxrPexpect(object):
         def pexpect_spawn(self, cmd, port, port_name, debug=""):
 
             msg = "(%s): Spawn (%s) %s" % (self.debug_name, cmd, debug)
-            self.parent.logger.info(msg)
+            self.parent.logger.debug(msg)
 
             self.session = IosxrPexpect.NodeSession(self, port, port_name, pexpect.spawn(cmd))
             self.sessions.append(self.session)
 
             if self.parent.opts.debug:
-                self.parent.logger.info('Sessions: %s', self.sessions)
+                self.parent.logger.debug('Sessions: %s', self.sessions)
 
             return self.session
 
@@ -249,7 +249,7 @@ class IosxrPexpect(object):
                     port_name = telnet_cmd
 
                     msg = "(%s, port %s): Connect %s" % (self.debug_name, port_name, debug)
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
                     index += 1
                     self.pexpect_spawn(telnet_cmd, "", port_name, debug)
@@ -260,7 +260,7 @@ class IosxrPexpect(object):
 
                     port_name = self.ttys[index]
                     msg = "(%s, port %s): Connect %s" % (self.debug_name, port_name, debug)
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
                     index += 1
                     session = self.pexpect_spawn(telnet_cmd, port, port_name, debug)
@@ -295,7 +295,7 @@ class IosxrPexpect(object):
                 data_no_newline = data.rstrip()
                 if data_no_newline != "":
                     msg = "%s: %s" % (session.name, debug)
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
                     print data
 
             return data
@@ -319,7 +319,7 @@ class IosxrPexpect(object):
             session = self.sessions[self.tty.xr]
 
             msg = "%s: Waiting for XR login prompt" % session.name
-            self.parent.logger.info(msg)
+            self.parent.logger.debug(msg)
 
             #
             # Do not run forever
@@ -359,14 +359,13 @@ class IosxrPexpect(object):
                 #
                 if re.search("Press RETURN to get started", data, re.MULTILINE):
                     msg = "%s: Got 'Press RETURN to get started'" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
                     msg = "%s: Pressing enter to wake up router" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
                     self.send(session, "")
 
-                    self.parent.logger.info(
-                            "Wait for first login request")
+                    self.parent.logger.debug("Wait for first login request")
                     continue
 
                 #
@@ -374,15 +373,14 @@ class IosxrPexpect(object):
                 #
                 if re.search("Enter root-system username:", data, re.MULTILINE):
                     msg = "%s: Got 'Enter root-system username:'" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
                     self.send(session, username)
 
                     msg = "%s: Sent XR login '%s'" % (session.name, username)
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
-                    self.parent.logger.info(
-                        "Wait for password request")
+                    self.parent.logger.debug("Wait for password request")
                     continue
 
                 #
@@ -390,15 +388,14 @@ class IosxrPexpect(object):
                 #
                 if re.search("Enter secret:", data, re.MULTILINE):
                     msg = "%s: Got 'Enter secret'" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
                     self.send(session, userpass)
 
                     msg = "%s: Sent password '%s'" % (session.name, userpass)
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
-                    self.parent.logger.info(
-                            "Wait for secret re-enter request")
+                    self.parent.logger.debug("Wait for secret re-enter request")
                     continue
 
                 #
@@ -406,16 +403,15 @@ class IosxrPexpect(object):
                 #
                 if re.search("Enter secret again", data, re.MULTILINE):
                     msg = "%s: Got 'Enter secret again'" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
                     self.send(session, userpass)
 
                     msg = "%s: Sent password again '%s'" % \
                           (session.name, userpass)
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
-                    self.parent.logger.info(
-                            "Wait for secret request retry")
+                    self.parent.logger.debug("Wait for secret request retry")
                     continue
 
                 #
@@ -423,22 +419,22 @@ class IosxrPexpect(object):
                 #
                 if re.search("Username:", data, re.MULTILINE):
                     msg = "%s: Got 'Username'" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
                     skip_username = 0
 
                     if time_seen_username_prompt != 0:
                         if time.time() - time_seen_username_prompt < 5:
                             msg = "%s: Got repeated 'Username' too soon, ignore" % session.name
-                            self.parent.logger.info(msg)
+                            self.parent.logger.debug(msg)
 
                             self.send(session, "")
                             skip_username = 1
 
                     msg = "time_seen_username_prompt '%d'" % (time_seen_username_prompt)
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
                     msg = "skip_username '%d'" % (skip_username)
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
                     if skip_username == 0:
                         time_seen_username_prompt = time.time()
@@ -446,11 +442,10 @@ class IosxrPexpect(object):
                         self.send(session, username)
 
                         msg = "%s: Sent username '%s'" % (session.name, username)
-                        self.parent.logger.info(msg)
+                        self.parent.logger.debug(msg)
                         time.sleep(1)
 
-                        self.parent.logger.info(
-                                "Wait for password request")
+                        self.parent.logger.debug("Wait for password request")
                         continue
 
                 #
@@ -458,15 +453,14 @@ class IosxrPexpect(object):
                 #
                 if re.search("Password:", data, re.MULTILINE):
                     msg = "%s: Got 'Password:'" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
                     self.send(session, userpass)
 
                     msg = "%s: Sent password '%s'" % (session.name, userpass)
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
-                    self.parent.logger.info(
-                            "Wait for console access")
+                    self.parent.logger.debug("Wait for console access")
                     continue
 
                 #
@@ -474,15 +468,14 @@ class IosxrPexpect(object):
                 #
                 if re.search("ios.config.*#", data, re.MULTILINE):
                     msg = "%s: Got 'ios.config.*#:'" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
                     self.send(session, "exit")
 
                     msg = "%s: Exiting conf t mode" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
-                    self.parent.logger.info(
-                            "Wait for console access after exit")
+                    self.parent.logger.debug("Wait for console access after exit")
                     continue
 
                 #
@@ -492,9 +485,9 @@ class IosxrPexpect(object):
                     self.send(session, "no")
 
                     msg = "%s: Aborting previous config" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
-                    self.parent.logger.info(
+                    self.parent.logger.debug(
                             "Wait for console access after aborting config")
                     continue
                 #
@@ -502,12 +495,12 @@ class IosxrPexpect(object):
                 #
                 if re.search("ios#", data, re.MULTILINE):
                     msg = "%s: Successfully logged into XR" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
                     return session
 
                 if re.search("RP.*/CPU.*#", data, re.MULTILINE):
                     msg = "%s: Successfully logged into XR" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
                     return session
 
                 #
@@ -522,7 +515,7 @@ class IosxrPexpect(object):
         def wait_xr_exec(self, session):
 
             msg = "%s: Waiting for XR exec prompt" % session.name
-            self.parent.logger.info(msg)
+            self.parent.logger.debug(msg)
 
             self.send(session, "")
 
@@ -546,7 +539,7 @@ class IosxrPexpect(object):
                 #
                 if re.search("ios#", data, re.MULTILINE):
                     msg = "%s: Successfully entered exec mode" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
                     return
 
             raise Exception("%s timed out trying to get into exec mode" %
@@ -555,7 +548,7 @@ class IosxrPexpect(object):
         def wait_xr_conf_mode(self, session):
 
             msg = "%s: Waiting for XR conf t prompt" % session.name
-            self.parent.logger.info(msg)
+            self.parent.logger.debug(msg)
 
             self.send(session, "")
             self.send(session, "conf t")
@@ -580,7 +573,7 @@ class IosxrPexpect(object):
                 #
                 if re.search("RP.*/CPU.*config.#", data, re.MULTILINE):
                     msg = "%s: Successfully entered conf t mode" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
                     return
 
                 #
@@ -588,7 +581,7 @@ class IosxrPexpect(object):
                 #
                 if re.search("ios.config.#", data, re.MULTILINE):
                     msg = "%s: Successfully entered conf t mode" % session.name
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
                     return
 
             raise Exception("%s timed out trying to get into conf t mode" %
@@ -603,7 +596,7 @@ class IosxrPexpect(object):
                 msg = "%s: Repeat \"%s\" until \"%s\" (%s)" % \
                     (session.name, send_txt, match_txt, debug)
 
-            self.parent.logger.info(msg)
+            self.parent.logger.debug(msg)
             count = 0
 
             #
@@ -624,7 +617,7 @@ class IosxrPexpect(object):
                         msg = "%s: Success, repeat \"%s\" until \"%s\" (%s)" % \
                             (session.name, send_txt, match_txt, debug)
 
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
                     return data
 
@@ -637,7 +630,7 @@ class IosxrPexpect(object):
                     msg = "%s: Repeat (retry %d) \"%s\" until \"%s\" (%s)" % \
                         (session.name, count, send_txt, match_txt, debug)
 
-                self.parent.logger.info(msg)
+                self.parent.logger.debug(msg)
 
             raise Exception("%s timed out (%s) trying to match %s" %
                             (session.name, debug, send_txt))
@@ -658,7 +651,7 @@ class IosxrPexpect(object):
                 else:
                     msg = "%s: Send \"%s\" (%s)" % (session.name, send_txt, debug)
 
-            self.parent.logger.info(msg)
+            self.parent.logger.debug(msg)
 
             session.pexpect.sendline(send_txt)
 
@@ -672,7 +665,7 @@ class IosxrPexpect(object):
             else:
                 msg = "%s: Wait \"%s\" (%s)" % (session.name, wait_txt, debug)
 
-            self.parent.logger.info(msg)
+            self.parent.logger.debug(msg)
 
             #
             # Do not run forever
@@ -698,7 +691,7 @@ class IosxrPexpect(object):
                     else:
                         msg = "%s: Still waiting \"%s\" (%s)" % (session.name, wait_txt, debug)
 
-                    self.parent.logger.info(msg)
+                    self.parent.logger.debug(msg)
 
                     time_pressed_enter = time.time()
                     self.send(session, "")
@@ -716,7 +709,7 @@ class IosxrPexpect(object):
 
                 port_name = self.ttys[index]
                 msg = '%s: Close %s %s' % (session.name, port_name, session.port)
-                self.parent.logger.info(msg)
+                self.parent.logger.debug(msg)
                 index += 1
 
                 session.pexpect.close(force=True)
@@ -736,15 +729,13 @@ class IosxrPexpect(object):
 
     def main(self):
         self.handler = logging.StreamHandler()
-        self.handler.setLevel(logging.INFO)
-        self.handler.setFormatter(ColorFormatter(logging.INFO))
+        self.handler.setFormatter(ColorFormatter(logging.DEBUG))
 
         self.logger = logging.getLogger(__name__)
         self.logger.addHandler(self.handler)
-        self.logger.setLevel(logging.INFO)
 
-        logging.addLevelName(logging.INFO,
-                             "\033[1;31m%s\033[1;0m" % logging.getLevelName(logging.INFO))
+        logging.addLevelName(logging.DEBUG,
+                             "\033[1;31m%s\033[1;0m" % logging.getLevelName(logging.DEBUG))
         logging.addLevelName(logging.ERROR,
                              "\033[1;41m%s\033[1;0m" % logging.getLevelName(logging.ERROR))
 
@@ -773,6 +764,13 @@ class IosxrPexpect(object):
         #
         self.opts = arger.parse_args()
 
+        if self.opts.verbose:
+            # Display all messages
+            logging.basicConfig(level=logging.DEBUG)
+        else:
+            # Display info, warnings and errors
+            logging.basicConfig(level=logging.DEBUG)
+
         #
         # Pull in the configuration module to run.
         #
@@ -781,11 +779,11 @@ class IosxrPexpect(object):
         full_path_config_file = os.path.abspath(pathname) + '/' + self.opts.config + '.py'
 
         if self.opts.debug:
-            self.logger.info('path: %s', pathname)
-            self.logger.info('sys.argv[0]: %s', sys.argv[0])
-            self.logger.info('full path: %s', full_pathname)
-            self.logger.info('config script: %s', self.opts.config)
-            self.logger.info('full_path_config_file: %s', full_path_config_file)
+            self.logger.debug('path: %s', pathname)
+            self.logger.debug('sys.argv[0]: %s', sys.argv[0])
+            self.logger.debug('full path: %s', full_pathname)
+            self.logger.debug('config script: %s', self.opts.config)
+            self.logger.debug('full_path_config_file: %s', full_path_config_file)
 
         my_module = imp.load_source(self.opts.config, full_path_config_file)
 

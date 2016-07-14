@@ -23,6 +23,7 @@ import argparse
 import os
 from iosxr_iso2vbox import run
 import paramiko
+import logging
 
 try:
     raw_input
@@ -72,11 +73,13 @@ def bringup_vagrant():
     except OSError:
         pass
 
-    print('Cleaning up ssh keys')
+    logger = logging.getLogger(__name__)
+
+    logger.debug('Removing stale SSH entries')
     run('ssh-keygen -R [localhost]:2222')
     run('ssh-keygen -R [localhost]:2223')
 
-    print("Bringing up '%s'..." % input_box)
+    logger.debug("Bringing up '%s'..." % input_box)
 
     run('vagrant init XRv64-test')  # Single node for now, in future could bring up two nodes and do more testing
     run('vagrant box add --name XRv64-test %s --force' % input_box)
@@ -89,8 +92,8 @@ def bringup_vagrant():
         s = pexpect.pxssh.pxssh()
         s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, port)
     except pxssh.ExceptionPxssh, e:
-        print("pxssh failed on login")
-        print(str(e))
+        logger.debug("pxssh failed on login")
+        logger.debug(str(e))
 
 
 def test_linux():
@@ -100,31 +103,32 @@ def test_linux():
     Verify can ping 'google.com'.
     Verify resolv.conf is populated.
     '''
-    print('Testing XR Linux...')
+    logger = logging.getLogger(__name__)
+    logger.debug('Testing XR Linux...')
     linux_port = subprocess.check_output('vagrant port --guest 57722', shell=True)
-    print('Connecting to port %s' % linux_port)
+    logger.debug('Connecting to port %s' % linux_port)
 
     try:
         s = pxssh.pxssh()
         s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, linux_port)
         s.prompt()
-        print('==>Successfully logged into XR Linux')
+        logger.debug('==>Successfully logged into XR Linux')
 
-        print('Check user:')
+        logger.debug('Check user:')
         s.sendline('whoami')
         output = s.expect(['vagrant', pexpect.EOF, pexpect.TIMEOUT])
         if check_result(output, 'Correct user found') is False:
             return False
         s.prompt()
 
-        print('Check pinging the internet:')
+        logger.debug('Check pinging the internet:')
         s.sendline("ping -c 4 google.com | grep '64 bytes' | wc -l")
         output = s.expect(['4', pexpect.EOF, pexpect.TIMEOUT])
         if check_result(output, 'Successfully pinged') is False:
             return False
         s.prompt()
 
-        print('Check resolv.conf is correctly populated:')
+        logger.debug('Check resolv.conf is correctly populated:')
         s.sendline("cat /etc/resolv.conf | grep 220")
         output = s.expect(['nameserver 208.67.220.220', pexpect.EOF, pexpect.TIMEOUT])
         if check_result(output, 'nameserver 208.67.220.220 is successfully populated') is False:
@@ -137,7 +141,7 @@ def test_linux():
             return False
         s.prompt()
 
-        print('Check vagrant public key has been replaced by private:')
+        logger.debug('Check vagrant public key has been replaced by private:')
         s.sendline('grep "public" ~/.ssh/authorized_keys -c')
         output = s.expect(['0', pexpect.EOF, pexpect.TIMEOUT])
         if check_result(output, 'SSH public key successfully replaced') is False:
@@ -145,11 +149,11 @@ def test_linux():
         s.prompt()
         s.logout()
     except pxssh.ExceptionPxssh as e:
-        print("==>pxssh failed on login.")
-        print(e)
+        logger.debug("==>pxssh failed on login.")
+        logger.debug(e)
         return False
     else:
-        print("==>Vagrant SSH to XR Linux is sane")
+        logger.debug("==>Vagrant SSH to XR Linux is sane")
         return True
 
 
@@ -162,10 +166,11 @@ def test_xr():
     Verify show run.
     '''
     global iosxr_port
+    logger = logging.getLogger(__name__)
 
-    print('Testing XR Console...')
+    logger.debug('Testing XR Console...')
     iosxr_port = subprocess.check_output('vagrant port --guest 22', shell=True)
-    print('Connecting to port %s' % iosxr_port)
+    logger.debug('Connecting to port %s' % iosxr_port)
 
     try:
         s = pxssh.pxssh()
@@ -176,16 +181,16 @@ def test_xr():
         s.prompt()
         s.sendline('term length 0')
         s.prompt()
-        print('==>Successfully logged into XR Console')
+        logger.debug('==>Successfully logged into XR Console')
 
-        print('Check show version:')
+        logger.debug('Check show version:')
         s.sendline('show version | i cisco IOS XRv x64')
         output = s.expect(['XRv x64', pexpect.EOF, pexpect.TIMEOUT])
         if check_result(output, 'XRv x64 correctly found in show version') is False:
             return False
         s.prompt()
 
-        print('Check show run for username vagrant:')
+        logger.debug('Check show run for username vagrant:')
         s.sendline('show run | i username')
         output = s.expect(['username vagrant', pexpect.EOF, pexpect.TIMEOUT])
         if check_result(output, 'Username vagrant found') is False:
@@ -193,7 +198,7 @@ def test_xr():
         s.prompt()
 
         if 'full' in input_box:
-            print('Check show run for grpc:')
+            logger.debug('Check show run for grpc:')
             s.sendline('show run grpc')
             output = s.expect(['port 57777', pexpect.EOF, pexpect.TIMEOUT])
             if check_result(output, 'grpc is configured') is False:
@@ -202,10 +207,10 @@ def test_xr():
 
         s.logout()
     except pxssh.ExceptionPxssh as e:
-        print("==>pxssh failed on login.")
-        print(e)
+        logger.debug("==>pxssh failed on login.")
+        logger.debug(e)
     else:
-        print("==>Vagrant SSH to XR Console is sane")
+        logger.debug("==>Vagrant SSH to XR Console is sane")
         return True
 
 
@@ -214,6 +219,7 @@ def test_scp_to_scratch():
     Test scp'ing a file to IOS XR.
     Not working yet.
     '''
+    logger = logging.getLogger(__name__)
 
     pathname = os.path.abspath(os.path.dirname(sys.argv[0]))
     test_path = os.path.join(pathname, 'test.txt')
@@ -237,15 +243,15 @@ def test_scp_to_scratch():
     ssh.close()
 
     linux_port = subprocess.check_output('vagrant port --guest 57722', shell=True)
-    print('Connecting to port %s' % linux_port)
+    logger.debug('Connecting to port %s' % linux_port)
 
     try:
         s = pxssh.pxssh()
         s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, linux_port)
         s.prompt()
-        print('==>Successfully logged into XR Linux')
+        logger.debug('==>Successfully logged into XR Linux')
 
-        print('Check SCP file exists:')
+        logger.debug('Check SCP file exists:')
         s.sendline('grep "rich-test" /misc/app_host/scratch -c')
         output = s.expect(['0', pexpect.EOF, pexpect.TIMEOUT])
         if check_result(output, 'SCP file found') is False:
@@ -253,32 +259,46 @@ def test_scp_to_scratch():
         s.prompt()
         s.logout()
     except pxssh.ExceptionPxssh as e:
-        print("==>pxssh failed on login.")
-        print(e)
+        logger.debug("==>pxssh failed on login.")
+        logger.debug(e)
         return False
     else:
-        print("==>SCP test is sane")
+        logger.debug("==>SCP test is sane")
         return True
 
 
 def main():
     # Get virtualbox
     global input_box
+    logger = logging.getLogger(__name__)
+
     parser = argparse.ArgumentParser(description='Pass in a vagrant box')
     parser.add_argument("a", nargs='?', default="check_string_for_empty")
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='turn on verbose messages')
+
     args = parser.parse_args()
 
     if args.a == 'check_string_for_empty':
-        print('No argument given')
-        print('Usage: iosxr_test.py <boxname>')
+        logger.debug('No argument given')
+        logger.debug('Usage: iosxr_test.py <boxname>')
         sys.exit(1)
     else:
         input_box = args.a
         if not os.path.exists(input_box):
-            print(input_box, 'does not exist')
+            logger.debug(input_box, 'does not exist')
             sys.exit()
 
-    print('Destroying previous default VM')
+    if args.verbose:
+        # Display all messages
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        # Display info, warnings and errors
+        logging.basicConfig(level=logging.INFO)
+
+    logger = logging.getLogger(__name__)
+
+    logger.debug('Destroying previous default VM')
     run('vagrant destroy --force')
 
     # Bring the newly generated virtualbox up
@@ -302,13 +322,13 @@ def main():
     except OSError:
         pass
 
-    print('result_linux=%s, result_xr=%s' % (result_linux, result_xr))
+    logger.debug('result_linux=%s, result_xr=%s' % (result_linux, result_xr))
 
     if result_linux is False or result_xr is False:
-        print('==> One or more of IOS XR and IOS Linux test suites failed')
+        logger.debug('==> One or more of IOS XR and IOS Linux test suites failed')
         return False
     else:
-        print('==> Both IOS XR and IOS Linux test suites passed')
+        logger.debug('==> Both IOS XR and IOS Linux test suites passed')
         return True
 
 if __name__ == "__main__":
