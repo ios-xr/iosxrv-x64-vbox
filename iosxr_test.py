@@ -21,9 +21,13 @@ from pexpect import pxssh
 import subprocess
 import argparse
 import os
-from iosxr_iso2vbox import run
+from iosxr_iso2vbox import run, set_logging
 import paramiko
 import logging
+
+logger = logging.getLogger(__name__)
+
+set_logging()
 
 try:
     raw_input
@@ -46,16 +50,16 @@ def check_result(result, success_message):
     Accepts a success message.
     '''
     if result == 0:
-        print('==>Test passed: %s' % success_message)
+        logger.debug('==>Test passed: %s' % success_message)
         return True
     elif result == 1:
-        print('==>EOF - Test failed')
+        logger.warning('==>EOF - Test failed')
         return False
     elif result == 2:
-        print('==> Timed out - Test failed')
+        logger.warning('==> Timed out - Test failed')
         return False
     else:
-        print('==> Generic - Test failed')
+        logger.warning('==> Generic - Test failed')
         return False
 
 
@@ -72,8 +76,6 @@ def bringup_vagrant():
         os.remove('Vagrantfile')
     except OSError:
         pass
-
-    logger = logging.getLogger(__name__)
 
     logger.debug('Removing stale SSH entries')
     run('ssh-keygen -R [localhost]:2222')
@@ -103,7 +105,6 @@ def test_linux():
     Verify can ping 'google.com'.
     Verify resolv.conf is populated.
     '''
-    logger = logging.getLogger(__name__)
     logger.debug('Testing XR Linux...')
     linux_port = subprocess.check_output('vagrant port --guest 57722', shell=True)
     logger.debug('Connecting to port %s' % linux_port)
@@ -166,7 +167,6 @@ def test_xr():
     Verify show run.
     '''
     global iosxr_port
-    logger = logging.getLogger(__name__)
 
     logger.debug('Testing XR Console...')
     iosxr_port = subprocess.check_output('vagrant port --guest 22', shell=True)
@@ -280,21 +280,18 @@ def main():
     args = parser.parse_args()
 
     if args.a == 'check_string_for_empty':
-        logger.debug('No argument given')
-        logger.debug('Usage: iosxr_test.py <boxname>')
-        sys.exit(1)
+        sys.exit('No argument given, Usage: iosxr_test.py <boxname>')
     else:
         input_box = args.a
         if not os.path.exists(input_box):
-            logger.debug(input_box, 'does not exist')
-            sys.exit()
+            sys.exit(input_box, 'does not exist')
 
     if args.verbose:
         # Display all messages
-        logging.basicConfig(level=logging.DEBUG)
+        logger.setLevel(level=logging.DEBUG)
     else:
         # Display info, warnings and errors
-        logging.basicConfig(level=logging.INFO)
+        logger.setLevel(level=logging.INFO)
 
     logger = logging.getLogger(__name__)
 

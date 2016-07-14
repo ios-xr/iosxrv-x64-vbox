@@ -75,6 +75,13 @@ import logging
 console_port = 65000
 aux_port = 65001
 
+logger = logging.getLogger(__name__)
+
+
+def set_logging():
+    FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
+    logging.basicConfig(format=FORMAT)
+
 
 def run_process_quietly(cmd_string, debug=False):
     '''
@@ -171,11 +178,12 @@ def main(argv):
     verbose = args.verbose
 
     if not os.path.exists(input_iso):
-        print('==>', input_iso, 'does not exist')
-        sys.exit()
+        sys.exit('==>', input_iso, 'does not exist')
 
     # Set Virtualbox VM name from the input ISO
     vmname = os.path.basename(os.path.splitext(input_iso)[0])
+
+    set_logging()
 
     # Set logging level to >DEBUG or >INFO
     # error > warning > info > debug
@@ -183,12 +191,10 @@ def main(argv):
     # not debug messages
     if verbose:
         # Display all messages
-        logging.basicConfig(level=logging.DEBUG)
+        logger.setLevel(level=logging.DEBUG)
     else:
         # Display info, warnings and errors
-        logging.basicConfig(level=logging.INFO)
-
-    logger = logging.getLogger(__name__)
+        logger.setLevel(level=logging.INFO)
 
     def cleanup_vms(name, box_name):
         '''
@@ -221,8 +227,7 @@ def main(argv):
         ram = 4096
         logger.debug('%s is a full image, RAM allocated is %s MB' % (input_iso, ram))
     else:
-        logger.debug('%s is neither a mini nor a full image. Abort' % input_iso)
-        sys.exit()
+        sys.exit('%s is neither a mini nor a full image. Abort' % input_iso)
 
     logger.info('Creating Vagrant VirtualBox')
 
@@ -403,7 +408,8 @@ def main(argv):
 
         if vmname in vms_list_running:
             logger.debug('Still shutting down')
-            sys.exit(1)
+            continue
+            # sys.exit(1)
         else:
             logger.debug('Successfully shut down')
             break

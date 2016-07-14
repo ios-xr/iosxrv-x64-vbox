@@ -33,10 +33,12 @@ from __future__ import print_function
 import sys
 import os
 import smtplib
-from iosxr_iso2vbox import run
+from iosxr_iso2vbox import run, set_logging
 import argparse
 from argparse import RawDescriptionHelpFormatter
 import logging
+
+logger = logging.getLogger(__name__)
 
 
 def main(argv):
@@ -44,6 +46,8 @@ def main(argv):
     verbose = False
     test_only = False
     artifactory_release = False
+
+    set_logging()
 
     # Get info from environment and check it's all there
     artifactory_username = os.environ.get('ARTIFACTORY_USERNAME')
@@ -110,23 +114,21 @@ def main(argv):
     test_only = args.test_only
 
     if not input_box:
-        print('No input box detected, use -b to specify a box')
-        sys.exit()
+        sys.exit('No input box detected, use -b to specify a box')
 
     if not os.path.exists(input_box):
-        print('==>', input_box, 'does not exist')
-        sys.exit()
+        sys.exit('==>', input_box, 'does not exist')
 
     boxname = os.path.basename(os.path.splitext(input_box)[0]) + '.box'
 
+    logger = logging.getLogger(__name__)
+
     if verbose:
         # Display all messages
-        logging.basicConfig(level=logging.DEBUG)
+        logger.setLevel(level=logging.DEBUG)
     else:
         # Display info, warnings and errors
-        logging.basicConfig(level=logging.INFO)
-
-    logger = logging.getLogger(__name__)
+        logger.setLevel(level=logging.INFO)
 
     logger.debug("Input box is: '%s'" % input_box)
     logger.debug("Message is:   '%s'" % message)
