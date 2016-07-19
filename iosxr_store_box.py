@@ -39,15 +39,13 @@ from argparse import RawDescriptionHelpFormatter
 import logging
 
 logger = logging.getLogger(__name__)
+set_logging()
 
 
 def main(argv):
     input_box = ''
-    verbose = False
     test_only = False
     artifactory_release = False
-
-    set_logging()
 
     # Get info from environment and check it's all there
     artifactory_username = os.environ.get('ARTIFACTORY_USERNAME')
@@ -97,8 +95,10 @@ def main(argv):
                         help='Optionally specify a reason for uploading this box')
     parser.add_argument('-r', '--release', action='store_true',
                         help="upload to '$ARTIFACTORY_LOCATION_RELEASE' rather than '$ARTIFACTORY_LOCATION_SNAPSHOT'.")
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='turn on verbose messages')
+    parser.add_argument('-v', '--verbose',
+                        action='store_const', const=logging.DEBUG,
+                        default=logging.INFO, help='turn on verbose messages')
+
     parser.add_argument('-t', '--test_only', action='store_true',
                         help='test only, do not store the box or send an email')
 
@@ -110,7 +110,6 @@ def main(argv):
         args.message = 'No reason for update specified'
     message = args.message
     artifactory_release = args.release
-    verbose = args.verbose
     test_only = args.test_only
 
     if not input_box:
@@ -121,14 +120,7 @@ def main(argv):
 
     boxname = os.path.basename(os.path.splitext(input_box)[0]) + '.box'
 
-    logger = logging.getLogger(__name__)
-
-    if verbose:
-        # Display all messages
-        logger.setLevel(level=logging.DEBUG)
-    else:
-        # Display info, warnings and errors
-        logger.setLevel(level=logging.INFO)
+    logger.setLevel(level=args.verbose)
 
     logger.debug("Input box is: '%s'" % input_box)
     logger.debug("Message is:   '%s'" % message)
@@ -158,7 +150,7 @@ def main(argv):
         logger.debug('Test only: copying %s to %s' % (input_box, box_out))
     else:
         logger.debug('Copying %s to %s' % (box_out, box_out))
-        run('curl -X PUT -u %s:%s -T %s %s' % (artifactory_username, artifactory_password, input_box, box_out))
+        run(['curl', '-X', 'PUT', '-u', artifactory_username, ':', artifactory_password, '-T', input_box, box_out])
 
     # Format an email message and send to the interest list
     email = """From: <%s>
@@ -174,7 +166,7 @@ Reason for update: %s
 \n vagrant ssh
         """ % (sender, receiver, location, message, box_out, box_out)
 
-    if args.verbose or test_only:
+    if args.verbose == logging.DEBUG or test_only:
         print('Email is:')
         print(email)
 

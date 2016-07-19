@@ -222,3 +222,10 @@ class XrLogin(object):
 
 def get_instance(iosxr_pexpect):
     return XrLogin(iosxr_pexpect)
+
+
+def main():
+    print('do nothing')
+
+if __name__ == "__main__":
+    main()

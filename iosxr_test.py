@@ -21,7 +21,7 @@ from pexpect import pxssh
 import subprocess
 import argparse
 import os
-from iosxr_iso2vbox import run, set_logging
+from iosxr_iso2vbox import run, set_logging, cleanup_vms
 import paramiko
 import logging
 
@@ -78,14 +78,14 @@ def bringup_vagrant():
         pass
 
     logger.debug('Removing stale SSH entries')
-    run('ssh-keygen -R [localhost]:2222')
-    run('ssh-keygen -R [localhost]:2223')
+    run(['ssh-keygen', '-R', '[localhost]:2222'])
+    run(['ssh-keygen', '-R', '[localhost]:2223'])
 
     logger.debug("Bringing up '%s'..." % input_box)
 
-    run('vagrant init XRv64-test')  # Single node for now, in future could bring up two nodes and do more testing
-    run('vagrant box add --name XRv64-test %s --force' % input_box)
-    run('vagrant up')
+    run(['vagrant', 'init', 'XRv64-test'])  # Single node for now, in future could bring up two nodes and do more testing
+    run(['vagrant', 'box', 'add', '--name', 'XRv64-test', input_box, '--force'])
+    run(['vagrant', 'up'])
 
     # Find the correct port to connect to
     port = subprocess.check_output('vagrant port --guest 57722', shell=True)
@@ -94,8 +94,8 @@ def bringup_vagrant():
         s = pexpect.pxssh.pxssh()
         s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, port)
     except pxssh.ExceptionPxssh, e:
-        logger.debug("pxssh failed on login")
-        logger.debug(str(e))
+        logger.error("pxssh failed on login")
+        logger.error(str(e))
 
 
 def test_linux():
@@ -150,8 +150,8 @@ def test_linux():
         s.prompt()
         s.logout()
     except pxssh.ExceptionPxssh as e:
-        logger.debug("==>pxssh failed on login.")
-        logger.debug(e)
+        logger.error("==>pxssh failed on login.")
+        logger.error(e)
         return False
     else:
         logger.debug("==>Vagrant SSH to XR Linux is sane")
@@ -207,7 +207,7 @@ def test_xr():
 
         s.logout()
     except pxssh.ExceptionPxssh as e:
-        logger.debug("==>pxssh failed on login.")
+        logger.error("==>pxssh failed on login.")
         logger.debug(e)
     else:
         logger.debug("==>Vagrant SSH to XR Console is sane")
@@ -219,12 +219,11 @@ def test_scp_to_scratch():
     Test scp'ing a file to IOS XR.
     Not working yet.
     '''
-    logger = logging.getLogger(__name__)
 
     pathname = os.path.abspath(os.path.dirname(sys.argv[0]))
     test_path = os.path.join(pathname, 'test.txt')
 
-    run('echo rich-test > %s' % test_path)
+    run(['echo', 'rich-test', '>', test_path])
 
     remote_path = '/misc/app_host/scratch/test.txt'
     hostname = ''
@@ -259,8 +258,8 @@ def test_scp_to_scratch():
         s.prompt()
         s.logout()
     except pxssh.ExceptionPxssh as e:
-        logger.debug("==>pxssh failed on login.")
-        logger.debug(e)
+        logger.error("==>pxssh failed on login.")
+        logger.error(e)
         return False
     else:
         logger.debug("==>SCP test is sane")
@@ -270,12 +269,12 @@ def test_scp_to_scratch():
 def main():
     # Get virtualbox
     global input_box
-    logger = logging.getLogger(__name__)
 
     parser = argparse.ArgumentParser(description='Pass in a vagrant box')
     parser.add_argument("a", nargs='?', default="check_string_for_empty")
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='turn on verbose messages')
+    parser.add_argument('-v', '--verbose',
+                        action='store_const', const=logging.DEBUG,
+                        default=logging.INFO, help='turn on verbose messages')
 
     args = parser.parse_args()
 
@@ -286,17 +285,10 @@ def main():
         if not os.path.exists(input_box):
             sys.exit(input_box, 'does not exist')
 
-    if args.verbose:
-        # Display all messages
-        logger.setLevel(level=logging.DEBUG)
-    else:
-        # Display info, warnings and errors
-        logger.setLevel(level=logging.INFO)
-
-    logger = logging.getLogger(__name__)
+    logger.setLevel(level=args.verbose)
 
     logger.debug('Destroying previous default VM')
-    run('vagrant destroy --force')
+    cleanup_vms('XRv64-test', input_box)
 
     # Bring the newly generated virtualbox up
     bringup_vagrant()
@@ -311,7 +303,7 @@ def main():
     # test_scp_to_scratch()
 
     # Testing finished - clean up now
-    run('vagrant destroy --force')
+    cleanup_vms('XRv64-test', input_box)
 
     # Clean up Vagrantfile
     try:

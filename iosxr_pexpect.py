@@ -29,58 +29,11 @@ import logging
 import pexpect
 import time
 import string
+from iosxr_iso2vbox import set_logging
 
+# logger = logging.getLogger(__name__)
 
-class Color:
-    BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
-
-    RESET_SEQ = "\033[0m"
-    COLOR_SEQ = "\033[%dm"
-    BOLD_SEQ = "\033[1m"
-
-
-class ColorFormatter(logging.Formatter):
-    FORMAT = ("%(asctime)s " +
-              "($BOLD%(filename)-20s$RESET:%(lineno)-4d) " +
-              "%(levelname)s " +
-              "%(message)s")
-
-    BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
-
-    RESET_SEQ = "\033[0m"
-    COLOR_SEQ = "\033[1;%dm"
-    BOLD_SEQ = "\033[1m"
-
-    COLORS = {
-        'WARNING': RED,
-        'INFO': GREEN,
-        'DEBUG': BLUE,
-        'CRITICAL': RED,
-        'ERROR': RED
-    }
-
-    def formatter_msg(self, msg, use_color=True):
-        if use_color:
-            msg = msg.replace("$RESET", self.RESET_SEQ).replace("$BOLD", self.BOLD_SEQ)
-        else:
-            msg = msg.replace("$RESET", "").replace("$BOLD", "")
-        return msg
-
-    def __init__(self, use_color=True):
-        msg = self.formatter_msg(self.FORMAT, use_color)
-
-        logging.Formatter.__init__(self, msg, datefmt='%Y-%m-%d,%H:%M:%S')
-        self.use_color = use_color
-
-    def format(self, record):
-        levelname = record.levelname
-
-        if self.use_color and levelname in self.COLORS:
-            fore_color = 30 + self.COLORS[levelname]
-            levelname_color = self.COLOR_SEQ % fore_color + levelname + self.RESET_SEQ
-            record.levelname = levelname_color
-
-        return logging.Formatter.format(self, record)
+set_logging()
 
 
 class IosxrPexpect(object):
@@ -95,16 +48,6 @@ class IosxrPexpect(object):
             self.port_name = port_name
             self.pexpect = pexpect
             self.name = "(%s:%s %s)" % (node.name, port, port_name)
-
-            reset = Color.RESET_SEQ
-            if node.name == "node1":
-                fg = Color.COLOR_SEQ % (Color.GREEN + 30)
-                self.name = "(%s%s:%s %s%s)" % (fg, node.name, port, port_name, reset)
-            elif node.name == "node2":
-                fg = Color.COLOR_SEQ % (Color.BLUE + 30)
-                self.name = "(%s%s:%s %s%s)" % (fg, node.name, port, port_name, reset)
-            else:
-                self.name = "(%s:%s %s)" % (node.name, port, port_name)
 
         #
         # Wrapper functions so we can call the node object and pass in the
@@ -208,16 +151,7 @@ class IosxrPexpect(object):
             self.sessions = []
             self.ttys = ["xr", "aux", "admin", "host"]
             self.clean = clean
-
-            reset = Color.RESET_SEQ
-            if name == "node1":
-                fg = Color.COLOR_SEQ % (Color.GREEN + 30)
-                self.debug_name = "%s%s%s" % (fg, name, reset)
-            elif name == "node2":
-                fg = Color.COLOR_SEQ % (Color.BLUE + 30)
-                self.debug_name = "%s%s%s" % (fg, name, reset)
-            else:
-                self.debug_name = name
+            self.debug_name = name
 
             self.start()
 
@@ -729,47 +663,47 @@ class IosxrPexpect(object):
 
     def main(self):
         self.handler = logging.StreamHandler()
-        self.handler.setFormatter(ColorFormatter(logging.DEBUG))
+        # self.handler.setFormatter(ColorFormatter(logging.DEBUG))
 
         self.logger = logging.getLogger(__name__)
         self.logger.addHandler(self.handler)
 
-        logging.addLevelName(logging.DEBUG,
-                             "\033[1;31m%s\033[1;0m" % logging.getLevelName(logging.DEBUG))
-        logging.addLevelName(logging.ERROR,
-                             "\033[1;41m%s\033[1;0m" % logging.getLevelName(logging.ERROR))
+        # logging.addLevelName(logging.DEBUG,
+        #                      "\033[1;31m%s\033[1;0m" % logging.getLevelName(logging.DEBUG))
+        # logging.addLevelName(logging.ERROR,
+        #                      "\033[1;41m%s\033[1;0m" % logging.getLevelName(logging.ERROR))
 
         #
         # Initialize the parser
         #
-        arger = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser()
 
-        arger.add_argument("-v", "--verbose", action="count", default=0)
-        arger.add_argument("-d", "--debug", action="count", default=0)
-        arger.add_argument("-quiet", "--quiet", action="count", default=0)
-
-        arger.add_argument("-config", "--config",
-                           help="name of configuration file to run",
-                           required=True)
-
-        arger.add_argument("-clean", "--clean",
-                           action="count", default=0,
-                           help="kills running nodes")
-
-        arger.add_argument('-cmds', '--cmds', nargs='+',
-                           help='commands to spawn for expect')
+        parser.add_argument('-v', '--verbose',
+                            action='store_const', const=logging.DEBUG,
+                            default=logging.INFO, help='turn on verbose messages')
+        parser.add_argument("-d", "--debug", action="count", default=0)
+        parser.add_argument("-quiet", "--quiet", action="count", default=0)
+        parser.add_argument("-config", "--config",
+                            help="name of configuration file to run",
+                            required=True)
+        parser.add_argument("-clean", "--clean",
+                            action="count", default=0,
+                            help="kills running nodes")
+        parser.add_argument('-cmds', '--cmds', nargs='+',
+                            help='commands to spawn for expect')
 
         #
         # Parse
         #
-        self.opts = arger.parse_args()
-
-        if self.opts.verbose:
-            # Display all messages
-            logging.basicConfig(level=logging.DEBUG)
-        else:
-            # Display info, warnings and errors
-            logging.basicConfig(level=logging.DEBUG)
+        self.opts = parser.parse_args()
+        # self.logger.setLevel(level=self.opts.verbose)
+        logging.basicConfig(level=self.opts.verbose)
+        # if self.opts.verbose:
+        #     # Display all messages
+        #     logging.basicConfig(level=logging.DEBUG)
+        # else:
+        #     # Display info, warnings and errors
+        #     logging.basicConfig(level=logging.INFO)
 
         #
         # Pull in the configuration module to run.
@@ -778,12 +712,11 @@ class IosxrPexpect(object):
         full_pathname = os.path.abspath(pathname)
         full_path_config_file = os.path.abspath(pathname) + '/' + self.opts.config + '.py'
 
-        if self.opts.debug:
-            self.logger.debug('path: %s', pathname)
-            self.logger.debug('sys.argv[0]: %s', sys.argv[0])
-            self.logger.debug('full path: %s', full_pathname)
-            self.logger.debug('config script: %s', self.opts.config)
-            self.logger.debug('full_path_config_file: %s', full_path_config_file)
+        self.logger.debug('path: %s', pathname)
+        self.logger.debug('sys.argv[0]: %s', sys.argv[0])
+        self.logger.debug('full path: %s', full_pathname)
+        self.logger.debug('config script: %s', self.opts.config)
+        self.logger.debug('full_path_config_file: %s', full_path_config_file)
 
         my_module = imp.load_source(self.opts.config, full_path_config_file)
 
@@ -805,4 +738,4 @@ class IosxrPexpect(object):
 if __name__ == '__main__':
     IosxrPexpect().main()
 
-exit(1)
+# exit(1)
