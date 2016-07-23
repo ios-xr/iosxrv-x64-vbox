@@ -21,12 +21,12 @@ from pexpect import pxssh
 import subprocess
 import argparse
 import os
-from iosxr_iso2vbox import run, set_logging, cleanup_vms
+from iosxr_iso2vbox import set_logging
 import paramiko
 import logging
+import time
 
 logger = logging.getLogger(__name__)
-
 set_logging()
 
 try:
@@ -42,6 +42,22 @@ login_timeout = 10
 hostname = "localhost"
 username = "vagrant"
 password = "vagrant"
+
+
+def run(argv):
+    '''
+    Simple run command to hide or display output depending on
+    verbosity requested.
+
+    The output in the verbose case is buffered.
+    '''
+    logger.debug('argv: %s', argv)
+    if verbose != logging.DEBUG:
+        subprocess.check_call(argv)
+        return ""
+    else:
+        output = subprocess.check_output(argv, stderr=subprocess.STDOUT)
+        logger.debug(output)
 
 
 def check_result(result, success_message):
@@ -77,15 +93,13 @@ def bringup_vagrant():
     except OSError:
         pass
 
-    logger.debug('Removing stale SSH entries')
-    run(['ssh-keygen', '-R', '[localhost]:2222'])
-    run(['ssh-keygen', '-R', '[localhost]:2223'])
-
     logger.debug("Bringing up '%s'..." % input_box)
 
     run(['vagrant', 'init', 'XRv64-test'])  # Single node for now, in future could bring up two nodes and do more testing
     run(['vagrant', 'box', 'add', '--name', 'XRv64-test', input_box, '--force'])
     run(['vagrant', 'up'])
+
+    time.sleep(30)
 
     # Find the correct port to connect to
     port = subprocess.check_output('vagrant port --guest 57722', shell=True)
@@ -269,6 +283,7 @@ def test_scp_to_scratch():
 def main():
     # Get virtualbox
     global input_box
+    global verbose
 
     parser = argparse.ArgumentParser(description='Pass in a vagrant box')
     parser.add_argument("a", nargs='?', default="check_string_for_empty")
@@ -277,6 +292,7 @@ def main():
                         default=logging.INFO, help='turn on verbose messages')
 
     args = parser.parse_args()
+    verbose = args.verbose
 
     if args.a == 'check_string_for_empty':
         sys.exit('No argument given, Usage: iosxr_test.py <boxname>')
@@ -286,9 +302,6 @@ def main():
             sys.exit(input_box, 'does not exist')
 
     logger.setLevel(level=args.verbose)
-
-    logger.debug('Destroying previous default VM')
-    cleanup_vms('XRv64-test', input_box)
 
     # Bring the newly generated virtualbox up
     bringup_vagrant()
@@ -301,15 +314,6 @@ def main():
 
     # Test scping to scratch space
     # test_scp_to_scratch()
-
-    # Testing finished - clean up now
-    cleanup_vms('XRv64-test', input_box)
-
-    # Clean up Vagrantfile
-    try:
-        os.remove('Vagrantfile')
-    except OSError:
-        pass
 
     logger.debug('result_linux=%s, result_xr=%s' % (result_linux, result_xr))
 
