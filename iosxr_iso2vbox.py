@@ -48,7 +48,7 @@ Sets up port forwarding for the guest SSH.
 
 Sets up storage - hdd and dvd(for ISO).
 
-Starts the VM, then use pexpect to configure XR and XR Aux for
+Starts the VM, then uses pexpect to configure XR and XR Aux for
 basic networking and XR Linux usage, with user name vagrant/vagrant.
 
 Closes the VM down once configured and then runs basic sanity tests.
@@ -80,7 +80,7 @@ def set_logging():
     '''
     Set basic logging format.
     '''
-    FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
+    FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s()] %(message)s"
     logging.basicConfig(format=FORMAT)
 
 
@@ -91,14 +91,13 @@ def run(cmd, hide_error=False, cont_on_error=False):
 
     Allow the ability to hide errors and also to continue on errors.
     '''
+    s_cmd = ' '.join(cmd)
+    logger.debug("Command: '%s'\n", s_cmd)
+
     output = subprocess.Popen(cmd,
-                              stdin=subprocess.PIPE,
                               stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE)
     tup_output = output.communicate()
-
-    s_cmd = ' '.join(cmd)
-    logger.debug("command: '%s'\n", s_cmd)
 
     if output.returncode != 0:
         logger.debug('Command failed with code %d:', output.returncode)
@@ -124,13 +123,13 @@ def cleanup_vmname(name, box_name):
     Cleanup and unregister (delete) our working box.
     '''
     # Power off VM if it is running
-    vms_list_running = run(['vboxmanage', 'list', 'runningvms'])
+    vms_list_running = run(['VBoxManage', 'list', 'runningvms'])
     if name in vms_list_running:
         logger.debug("'%s' is running, powering off...", name)
         run(['VBoxManage', 'controlvm', name, 'poweroff'])
 
     # Unregister and delete
-    vms_list = run(['vboxmanage', 'list', 'vms'])
+    vms_list = run(['VBoxManage', 'list', 'vms'])
     if name in vms_list:
         logger.debug("'%s' is registered, unregistering and deleting", name)
         run(['VBoxManage', 'unregistervm', box_name, '--delete'])
@@ -212,8 +211,9 @@ def configure_xr(argv):
         # Determine if the image is a crypto/k9 image or not
         # This will be used to determine whether to configure ssh or not
         child.sendline("bash -c rpm -qa | grep k9sec")
-        output = child.expect('-k9sec')
-        if output == 0:
+        child.expect(prompt)
+        output = child.before
+        if '-k9sec' in output:
             crypto = True
             logger.debug("Crypto k9 image detected")
         else:
@@ -222,8 +222,9 @@ def configure_xr(argv):
 
         # Determine if the image has the MGBL package needed for gRPC
         child.sendline("bash -c rpm -qa | grep mgbl")
-        output = child.expect('-mgbl')
-        if output == 0:
+        child.expect(prompt)
+        output = child.before
+        if '-mgbl' in output:
             mgbl = True
             logger.debug("MGBL package detected")
         else:
@@ -274,15 +275,7 @@ def configure_xr(argv):
         child.expect(prompt)
 
         # Spin waiting for an ip address to be associated with the interface
-        while True:
-            try:
-                child.sendline("sh ipv4 int brief | i 10.0.2.15")
-                child.expect("10.0.2.15", 5)
-                break
-            except pexpect.TIMEOUT:
-                time.sleep(5)
-                logger.debug("Waiting 5s then checking for dhcp ip address")
-                continue
+        xr_cli_wait_for_output('"sh ipv4 int brief | i 10.0.2.15', '10.0.2.15')
 
         # Needed for jenkins if using root password
         child.sendline("bash -c sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config_operns")
@@ -342,6 +335,7 @@ def configure_xr(argv):
         # Final check to make sure MGMT stayed up
         xr_cli_wait_for_output('show ipv4 interface MgmtEth0/RP0/CPU0/0 | i Internet address', '10.0.2.15')
 
+        logger.debug('Waiting 30 seconds...')
         time.sleep(30)
 
     except pexpect.TIMEOUT:
@@ -370,7 +364,7 @@ def main(argv):
                         const='No reason for update specified',
                         help='Upload box to Artifactory. You can optionally specify a reason for uploading this box')
     parser.add_argument('-o', '--create_ova', action='store_true',
-                        help='additionally use vboxmanage to export an OVA')
+                        help='additionally use VBoxManage to export an OVA')
     parser.add_argument('-s', '--skip_test', action='store_true',
                         help='skip unit testing')
     parser.add_argument('-d', '--debug', action='store_true',
@@ -403,7 +397,7 @@ def main(argv):
     create_ova = args.create_ova
 
     if not os.path.exists(input_iso):
-        sys.exit('==>', input_iso, 'does not exist')
+        sys.exit('==> %s does not exist' % input_iso)
 
     # Set Virtualbox VM name from the input ISO
     vmname = os.path.basename(os.path.splitext(input_iso)[0])
@@ -549,10 +543,10 @@ def main(argv):
 
     # Change boot order to hd then dvd
     logger.debug('Boot order disk first')
-    run(['vboxmanage', 'modifyvm', vmname, '--boot1', 'disk'])
+    run(['VBoxManage', 'modifyvm', vmname, '--boot1', 'disk'])
 
     logger.debug('Boot order DVD second')
-    run(['vboxmanage', 'modifyvm', vmname, '--boot2', 'dvd'])
+    run(['VBoxManage', 'modifyvm', vmname, '--boot2', 'dvd'])
 
     # Start the VM for installation of ISO - must be started as a sub process
     logger.debug('Starting VM...')
@@ -588,7 +582,7 @@ def main(argv):
     run(['VBoxManage', 'controlvm', vmname, 'poweroff'])
 
     while True:
-        vms_list_running = run(['vboxmanage', 'list', 'runningvms'])
+        vms_list_running = run(['VBoxManage', 'list', 'runningvms'])
         if vmname in vms_list_running:
             logger.debug('Still shutting down')
             continue

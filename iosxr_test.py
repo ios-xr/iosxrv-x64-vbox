@@ -99,6 +99,7 @@ def bringup_vagrant():
     run(['vagrant', 'box', 'add', '--name', 'XRv64-test', input_box, '--force'])
     run(['vagrant', 'up'])
 
+    logger.debug('Waiting 30 seconds...')
     time.sleep(30)
 
     # Find the correct port to connect to
@@ -106,7 +107,9 @@ def bringup_vagrant():
 
     try:
         s = pexpect.pxssh.pxssh()
-        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, port)
+        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, port, auto_prompt_reset=False)
+        logger.debug('Sucessfully brought up VM and logged in')
+        s.logout()
     except pxssh.ExceptionPxssh, e:
         logger.error("pxssh failed on login")
         logger.error(str(e))
@@ -125,7 +128,8 @@ def test_linux():
 
     try:
         s = pxssh.pxssh()
-        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, linux_port)
+        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, linux_port, auto_prompt_reset=False)
+
         s.prompt()
         logger.debug('==>Successfully logged into XR Linux')
 
@@ -181,6 +185,10 @@ def test_xr():
     Verify show run.
     '''
     global iosxr_port
+
+    if 'k9' not in input_box:
+        logger.debug('Not a crypto image, will not test XR as no SSH to access.')
+        return True
 
     logger.debug('Testing XR Console...')
     iosxr_port = subprocess.check_output('vagrant port --guest 22', shell=True)

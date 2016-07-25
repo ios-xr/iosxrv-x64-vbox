@@ -116,7 +116,7 @@ def main(argv):
         sys.exit('No input box detected, use -b to specify a box')
 
     if not os.path.exists(input_box):
-        sys.exit('==>', input_box, 'does not exist')
+        sys.exit('==> %s does not exist' % input_box)
 
     boxname = os.path.basename(os.path.splitext(input_box)[0]) + '.box'
 
