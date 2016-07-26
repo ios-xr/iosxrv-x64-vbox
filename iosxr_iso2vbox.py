@@ -135,7 +135,19 @@ def cleanup_vmname(name, box_name):
         run(['VBoxManage', 'unregistervm', box_name, '--delete'])
 
 
-def start_vboxheadless(args):
+def pause_to_debug():
+    if debug:
+        print("Pause before debug")
+        print("Use: 'socat TCP:localhost:65000 -,raw,echo=0,escape=0x1d' to access the VM")
+        raw_input("Press Enter to continue.")
+        # To debug post box creation, add the following lines to Vagrantfile
+        # config.vm.provider "virtualbox" do |v|
+        #   v.customize ["modifyvm", :id, "--uart1", "0x3F8", 4, "--uartmode1", 'tcpserver', 65005]
+        #   v.customize ["modifyvm", :id, "--uart2", "0x2F8", 3, "--uartmode2", 'tcpserver', 65006]
+        # end
+
+
+def start_process(args):
     '''
     Start vboxheadless process
     '''
@@ -154,7 +166,7 @@ def configure_xr(argv):
     logger.info('Logging into Vagrant Virtualbox and configuring IOS XR')
 
     localhost = 'localhost'
-    prompt = "[$#]"
+    prompt = r"[$#]"
 
     def xr_cli_wait_for_output(command, pattern):
         '''
@@ -275,7 +287,7 @@ def configure_xr(argv):
         child.expect(prompt)
 
         # Spin waiting for an ip address to be associated with the interface
-        xr_cli_wait_for_output('"sh ipv4 int brief | i 10.0.2.15', '10.0.2.15')
+        xr_cli_wait_for_output('sh ipv4 int brief | i 10.0.2.15', '10.0.2.15')
 
         # Needed for jenkins if using root password
         child.sendline("bash -c sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config_operns")
@@ -322,7 +334,6 @@ def configure_xr(argv):
         xr_cli_wait_for_output('bash -c service sshd_operns status', 'is running...')
 
         child.sendline("bash -c chkconfig --add sshd_operns")
-        # child.expect(prompt)
         child.expect("RP/0/RP0/CPU0:ios")
 
         # Set up IOS XR ssh if a k9/crypto image
@@ -347,6 +358,7 @@ def main(argv):
     copy_to_artifactory = False
     create_ova = False
     artifactory_reason = ''
+    global debug
 
     parser = argparse.ArgumentParser(
         formatter_class=RawDescriptionHelpFormatter,
@@ -374,6 +386,7 @@ def main(argv):
                         default=logging.INFO, help='turn on verbose messages')
 
     args = parser.parse_args()
+    debug = args.debug
 
     # Handle Input ISO (Local or URI)
     if re.search(':/', args.ISO_FILE):
@@ -550,7 +563,7 @@ def main(argv):
 
     # Start the VM for installation of ISO - must be started as a sub process
     logger.debug('Starting VM...')
-    start_vboxheadless(['VBoxHeadless', '--startvm', vmname])
+    start_process(['VBoxHeadless', '--startvm', vmname])
 
     while True:
         vms_list = run(['VBoxManage', 'showvminfo', vmname])
@@ -565,15 +578,7 @@ def main(argv):
     configure_xr(args.verbose)
 
     # Good place to stop and take a look if --debug was entered
-    if args.debug:
-        print("Stopping before creating the VM")
-        print("Use: 'socat TCP:localhost:65000 -,raw,echo=0,escape=0x1d' to access the VM")
-        raw_input("Press Enter to continue.")
-        # To debug post box creation, add the following lines to Vagrantfile
-        # config.vm.provider "virtualbox" do |v|
-        #   v.customize ["modifyvm", :id, "--uart1", "0x3F8", 4, "--uartmode1", 'tcpserver', 65005]
-        #   v.customize ["modifyvm", :id, "--uart2", "0x2F8", 3, "--uartmode2", 'tcpserver', 65006]
-        # end
+    pause_to_debug()
 
     logger.info('Powering down and generating Vagrant VirtualBox')
 
@@ -627,7 +632,6 @@ def main(argv):
         else:
             # Shhhh...
             verbose_str = ''
-        logger.debug("verbose string '%s'", verbose_str)
 
         iosxr_test_path = os.path.join(pathname, 'iosxr_test.py')
         cmd_string = "python %s %s %s" % (iosxr_test_path, box_out, verbose_str)
@@ -638,18 +642,18 @@ def main(argv):
         else:
             logger.info('Passed basic test, box %s is sane', box_out)
 
-    logger.debug('Single node use:')
-    logger.debug(" vagrant init 'IOS XRv'")
-    logger.debug(" vagrant box add --name 'IOS XRv' %s --force", box_out)
-    logger.debug(' vagrant up')
+    logger.info('Single node use:')
+    logger.info(" vagrant init 'IOS XRv'")
+    logger.info(" vagrant box add --name 'IOS XRv' %s --force", box_out)
+    logger.info(' vagrant up')
 
-    logger.debug('Multinode use:')
-    logger.debug(" Copy './iosxrv-x64-vbox/vagrantfiles/simple-mixed-topo/Vagrantfile' to the directory running vagrant and do:")
-    logger.debug(" vagrant box add --name 'IOS XRv' %s --force", box_out)
-    logger.debug(' vagrant up')
-    logger.debug(" Or: 'vagrant up rtr1', 'vagrant up rtr2'")
+    logger.info('Multinode use:')
+    logger.info(" Copy './iosxrv-x64-vbox/vagrantfiles/simple-mixed-topo/Vagrantfile' to the directory running vagrant and do:")
+    logger.info(" vagrant box add --name 'IOS XRv' %s --force", box_out)
+    logger.info(' vagrant up')
+    logger.info(" Or: 'vagrant up rtr1', 'vagrant up rtr2'")
 
-    logger.debug('Note that both the XR Console and the XR linux shell username and password is vagrant/vagrant')
+    logger.info('Note that both the XR Console and the XR linux shell username and password is vagrant/vagrant')
 
     # Clean up VM's used to build and test
     cleanup_vmname(vmname, vbox)

@@ -21,7 +21,7 @@ from pexpect import pxssh
 import subprocess
 import argparse
 import os
-from iosxr_iso2vbox import set_logging
+from iosxr_iso2vbox import set_logging, run, start_process
 import paramiko
 import logging
 import time
@@ -37,27 +37,11 @@ except NameError:
 # Some defaults
 terminal_type = 'ansi'
 linux_prompt = r"[#$]"
-xr_prompt = "[$#]"
-login_timeout = 10
+xr_prompt = r"[$#]"
+login_timeout = 600
 hostname = "localhost"
 username = "vagrant"
 password = "vagrant"
-
-
-def run(argv):
-    '''
-    Simple run command to hide or display output depending on
-    verbosity requested.
-
-    The output in the verbose case is buffered.
-    '''
-    logger.debug('argv: %s', argv)
-    if verbose != logging.DEBUG:
-        subprocess.check_call(argv)
-        return ""
-    else:
-        output = subprocess.check_output(argv, stderr=subprocess.STDOUT)
-        logger.debug(output)
 
 
 def check_result(result, success_message):
@@ -93,26 +77,19 @@ def bringup_vagrant():
     except OSError:
         pass
 
+    # Remove stale SSH entry
+    logger.debug('Removing stale SSH entries')
+    run(['ssh-keygen', '-R', '[localhost]:2222'])
+    run(['ssh-keygen', '-R', '[localhost]:2223'])
+
     logger.debug("Bringing up '%s'..." % input_box)
 
     run(['vagrant', 'init', 'XRv64-test'])  # Single node for now, in future could bring up two nodes and do more testing
     run(['vagrant', 'box', 'add', '--name', 'XRv64-test', input_box, '--force'])
-    run(['vagrant', 'up'])
+    start_process(['vagrant', 'up'])
 
     logger.debug('Waiting 30 seconds...')
     time.sleep(30)
-
-    # Find the correct port to connect to
-    port = subprocess.check_output('vagrant port --guest 57722', shell=True)
-
-    try:
-        s = pexpect.pxssh.pxssh()
-        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, port, auto_prompt_reset=False)
-        logger.debug('Sucessfully brought up VM and logged in')
-        s.logout()
-    except pxssh.ExceptionPxssh, e:
-        logger.error("pxssh failed on login")
-        logger.error(str(e))
 
 
 def test_linux():
@@ -325,7 +302,7 @@ def main():
 
     logger.debug('result_linux=%s, result_xr=%s' % (result_linux, result_xr))
 
-    if result_linux is False or result_xr is False:
+    if result_linux is not True or result_xr is not True:
         logger.debug('==> One or more of IOS XR and IOS Linux test suites failed')
         return False
     else:

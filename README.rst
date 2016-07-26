@@ -98,13 +98,14 @@ How to use this tool
 
 5. Example with verbosity off
 
-iosxrv-x64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso
-[iosxr_iso2vbox.py:428 -                 main() ] Creating Vagrant VirtualBox
-[iosxr_iso2vbox.py:155 -         configure_xr() ] Logging into Vagrant Virtualbox and configuring IOS XR
-[iosxr_iso2vbox.py:584 -                 main() ] Powering down and generating Vagrant VirtualBox
-[iosxr_iso2vbox.py:614 -                 main() ] Created: /Users/rwellum/Desktop/Boxes/machines/iosxrv-fullk9-x64/iosxrv-fullk9-x64.box
-[iosxr_iso2vbox.py:624 -                 main() ] Running basic unit tests on Vagrant VirtualBox...
-[iosxr_iso2vbox.py:645 -                 main() ] Passed basic test, box /Users/rwellum/Desktop/Boxes/machines/iosxrv-fullk9-x64/iosxrv-fullk9-x64.box is sane
+   ::
+      iosxrv-x64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso
+      [iosxr_iso2vbox.py:428 -                 main() ] Creating Vagrant VirtualBox
+      [iosxr_iso2vbox.py:155 -         configure_xr() ] Logging into Vagrant Virtualbox and configuring IOS XR
+      [iosxr_iso2vbox.py:584 -                 main() ] Powering down and generating Vagrant VirtualBox
+      [iosxr_iso2vbox.py:614 -                 main() ] Created: /Users/rwellum/Desktop/Boxes/machines/iosxrv-fullk9-x64/iosxrv-fullk9-x64.box
+      [iosxr_iso2vbox.py:624 -                 main() ] Running basic unit tests on Vagrant VirtualBox...
+      [iosxr_iso2vbox.py:645 -                 main() ] Passed basic test, box /Users/rwellum/Desktop/Boxes/machines/iosxrv-fullk9-x64/iosxrv-fullk9-x64.box is sane
 
 6. Full help
 
