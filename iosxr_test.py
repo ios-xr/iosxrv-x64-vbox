@@ -89,7 +89,7 @@ def bringup_vagrant():
 
     # Find the correct port to connect to
     port = subprocess.check_output('vagrant port --guest 57722', shell=True)
-    logger.debug('Connecting to port %s' % iosxr_port)
+    logger.debug('Connecting to port %s' % port)
 
     try:
         s = pexpect.pxssh.pxssh()
