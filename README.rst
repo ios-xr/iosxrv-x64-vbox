@@ -94,7 +94,7 @@ How to use this tool
 
    ::
 
-      ./iosxrv-x64-vbox/iosxr_iso2vbox.py -i iosxrv-fullk9-x64.iso
+      ./iosxrv-x64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso
 
 5. Example with verbosity off
 
