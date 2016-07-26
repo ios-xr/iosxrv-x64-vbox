@@ -22,7 +22,6 @@ import subprocess
 import argparse
 import os
 from iosxr_iso2vbox import set_logging, run, start_process
-import paramiko
 import logging
 import time
 
@@ -227,58 +226,6 @@ def test_xr():
         return True
 
 
-def test_scp_to_scratch():
-    '''
-    Test scp'ing a file to IOS XR.
-    Not working yet.
-    '''
-
-    pathname = os.path.abspath(os.path.dirname(sys.argv[0]))
-    test_path = os.path.join(pathname, 'test.txt')
-
-    run(['echo', 'rich-test', '>', test_path])
-
-    remote_path = '/misc/app_host/scratch/test.txt'
-    hostname = ''
-    username = 'vagrant'
-    password = 'vagrant'
-
-    ssh = paramiko.SSHClient()
-    ssh.load_host_keys(os.path.expanduser(os.path.join("~", ".ssh", "known_hosts")))
-    # s.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(hostname, iosxr_port, username, password, allow_agent=False, look_for_keys=False)
-
-    sftp = ssh.open_sftp()
-    sftp.put(test_path, remote_path)
-
-    sftp.close()
-    ssh.close()
-
-    linux_port = subprocess.check_output('vagrant port --guest 57722', shell=True)
-    logger.debug('Connecting to port %s' % linux_port)
-
-    try:
-        s = pxssh.pxssh()
-        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, linux_port)
-        s.prompt()
-        logger.debug('==>Successfully logged into XR Linux')
-
-        logger.debug('Check SCP file exists:')
-        s.sendline('grep "rich-test" /misc/app_host/scratch -c')
-        output = s.expect(['0', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'SCP file found') is False:
-            return False
-        s.prompt()
-        s.logout()
-    except pxssh.ExceptionPxssh as e:
-        logger.error("==>pxssh failed on login.")
-        logger.error(e)
-        return False
-    else:
-        logger.debug("==>SCP test is sane")
-        return True
-
-
 def main():
     # Get virtualbox
     global input_box
@@ -310,9 +257,6 @@ def main():
 
     # Test IOS XR Linux
     result_linux = test_linux()
-
-    # Test scping to scratch space
-    # test_scp_to_scratch()
 
     logger.debug('result_linux=%s, result_xr=%s' % (result_linux, result_xr))
 
