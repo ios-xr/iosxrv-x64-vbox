@@ -88,7 +88,7 @@ How to use this tool
 
       git clone https://github.com/ios-xr/iosxrv-x64-vbox.git
 
-2. Install VirtualBox and Vagrant (see guide below).
+2. Install VirtualBox, Vagrant and socat (see guide below).
 3. Download the appropriate ISO file, e.g. ``iosxrv-fullk9-x64.iso``
 4. Generate the VirtualBox box:
 
@@ -140,9 +140,9 @@ How to use this tool
       box build with remote iso: iosxr-xrv64-vbox/iosxr_iso2vbox.py user@server:/myboxes/iosxrv-fullk9-x64.iso
       box build with ova export, verbose and upload to artifactory: iosxr-xrv64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso -o -v -a 'New Image'
 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-How to install Vagrant and VirtualBox
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+How to install Vagrant, VirtualBox and socat
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 This example is specific to OS X and is a guide only, users should
 research what their particular environment requires to run Vagrant_,
 VirtualBox_, and Pexpect_:
@@ -156,6 +156,7 @@ VirtualBox_, and Pexpect_:
    /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
    brew cask install virtualbox
    brew cask install vagrant
+   brew install socat
 
 See also: http://sourabhbajaj.com/mac-setup/Vagrant/README.html
 
@@ -181,7 +182,8 @@ How to bring up a single node instance:
      vagrant init 'IOS XRv'
      vagrant box add --name 'IOS XRv' iosxrv-fullk9-x64.box --force
      vagrant up
-     # Wait for vagrant to finish and prompt you
+
+* Wait for vagrant to finish and prompt you
 
 * To access operns App Hosting / XR Linux space:
   ::

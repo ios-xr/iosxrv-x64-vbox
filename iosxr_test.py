@@ -88,6 +88,19 @@ def bringup_vagrant():
     run(['vagrant', 'box', 'add', '--name', 'XRv64-test', input_box, '--force'])
     start_process(['vagrant', 'up'])
 
+    # Find the correct port to connect to
+    port = subprocess.check_output('vagrant port --guest 57722', shell=True)
+
+    try:
+        s = pexpect.pxssh.pxssh()
+        # s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, port, auto_prompt_reset=False)
+        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, port)
+        logger.debug('Sucessfully brought up VM and logged in')
+        s.logout()
+    except pxssh.ExceptionPxssh, e:
+        logger.error("pxssh failed on login")
+        logger.error(e)
+
     logger.debug('Waiting 30 seconds...')
     time.sleep(30)
 
@@ -291,11 +304,11 @@ def main():
     # Bring the newly generated virtualbox up
     bringup_vagrant()
 
-    # Test IOS XR Linux
-    result_linux = test_linux()
-
     # Test IOS XR Console
     result_xr = test_xr()
+
+    # Test IOS XR Linux
+    result_linux = test_linux()
 
     # Test scping to scratch space
     # test_scp_to_scratch()
