@@ -389,8 +389,8 @@ def main(argv):
     if re.search(':/', args.ISO_FILE):
         # URI Image
         cmd_string = 'scp %s@%s .' % (getpass.getuser(), args.ISO_FILE)
-        logger.debug('==> Will attempt to scp the remote image to current working dir. You may be required to enter your password.')
-        logger.debug('==> %s\n', cmd_string)
+        logger.debug('Will attempt to scp the remote image to current working dir. You may be required to enter your password.')
+        logger.debug('%s\n', cmd_string)
         subprocess.call(cmd_string, shell=True)
         input_iso = os.path.basename(args.ISO_FILE)
     else:
@@ -407,7 +407,7 @@ def main(argv):
     create_ova = args.create_ova
 
     if not os.path.exists(input_iso):
-        sys.exit('==> %s does not exist' % input_iso)
+        sys.exit('%s does not exist' % input_iso)
 
     # Set Virtualbox VM name from the input ISO
     vmname = os.path.basename(os.path.splitext(input_iso)[0])

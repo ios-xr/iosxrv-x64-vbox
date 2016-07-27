@@ -49,16 +49,16 @@ def check_result(result, success_message):
     Accepts a success message.
     '''
     if result == 0:
-        logger.debug('==>Test passed: %s' % success_message)
+        logger.debug('Test passed: %s' % success_message)
         return True
     elif result == 1:
-        logger.warning('==>EOF - Test failed')
+        logger.warning('EOF - Test failed')
         return False
     elif result == 2:
-        logger.warning('==> Timed out - Test failed')
+        logger.warning(' Timed out - Test failed')
         return False
     else:
-        logger.warning('==> Generic - Test failed')
+        logger.warning(' Generic - Test failed')
         return False
 
 
@@ -120,7 +120,7 @@ def test_linux():
         s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, linux_port, auto_prompt_reset=False)
 
         s.prompt()
-        logger.debug('==>Successfully logged into XR Linux')
+        logger.debug('Successfully logged into XR Linux')
 
         logger.debug('Check user:')
         s.sendline('whoami')
@@ -157,11 +157,11 @@ def test_linux():
         s.prompt()
         s.logout()
     except pxssh.ExceptionPxssh as e:
-        logger.error("==>pxssh failed on login.")
+        logger.error("pxssh failed on login.")
         logger.error(e)
         return False
     else:
-        logger.debug("==>Vagrant SSH to XR Linux is sane")
+        logger.debug("Vagrant SSH to XR Linux is sane")
         return True
 
 
@@ -195,7 +195,7 @@ def test_xr():
         s.prompt()
         s.sendline('term length 0')
         s.prompt()
-        logger.debug('==>Successfully logged into XR Console')
+        logger.debug('Successfully logged into XR Console')
 
         logger.debug('Check show version:')
         s.sendline('show version | i cisco IOS XRv x64')
@@ -221,10 +221,10 @@ def test_xr():
 
         s.logout()
     except pxssh.ExceptionPxssh as e:
-        logger.error("==>pxssh failed on login.")
+        logger.error("pxssh failed on login.")
         logger.debug(e)
     else:
-        logger.debug("==>Vagrant SSH to XR Console is sane")
+        logger.debug("Vagrant SSH to XR Console is sane")
         return True
 
 
@@ -265,7 +265,8 @@ def main():
     if not (result_linux and result_xr):
         sys.exit('Failed basic test, box is not sane')
     else:
-        logger.info('==> Both IOS XR and IOS Linux test suites passed')
+        logger.info('Both IOS XR and IOS Linux test suites passed')
+        return
 
 if __name__ == "__main__":
     main()

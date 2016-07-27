@@ -54,17 +54,17 @@ def main(argv):
     receiver = os.environ.get('ARTIFACTORY_RECEIVER')
 
     if artifactory_username is None:
-        sys.exit("==> Please set ARTIFACTORY_USERNAME in your environment\n"
+        sys.exit("Please set ARTIFACTORY_USERNAME in your environment\n"
                  "E.g., 'export ARTIFACTORY_USERNAME=<username>'")
     if artifactory_password is None:
-        sys.exit("==> Please set ARTIFACTORY_PASSWORD in your environment\n"
+        sys.exit("Please set ARTIFACTORY_PASSWORD in your environment\n"
                  "E.g. export 'ARTIFACTORY_PASSWORD=<PASSWORD>'")
     if sender is None:
-        sys.exit("==> Please set SENDER in your environment\n"
-                 "==> E.g. export 'ARTIFACTORY_SENDER=$USER@me.com'")
+        sys.exit("Please set SENDER in your environment\n"
+                 "E.g. export 'ARTIFACTORY_SENDER=$USER@me.com'")
     if receiver is None:
-        sys.exit("==> Please set RECEIVER in your environment\n"
-                 "==> E.g. export 'ARTIFACTORY_RECEIVER=updates@me.com'")
+        sys.exit("Please set RECEIVER in your environment\n"
+                 "E.g. export 'ARTIFACTORY_RECEIVER=updates@me.com'")
 
     # Suck in the input BOX and handle errors
     parser = argparse.ArgumentParser(
@@ -116,7 +116,7 @@ def main(argv):
         sys.exit('No input box detected, use -b to specify a box')
 
     if not os.path.exists(input_box):
-        sys.exit('==> %s does not exist' % input_box)
+        sys.exit('%s does not exist' % input_box)
 
     boxname = os.path.basename(os.path.splitext(input_box)[0]) + '.box'
 
@@ -140,9 +140,9 @@ def main(argv):
         location = os.environ.get('ARTIFACTORY_LOCATION_SNAPSHOT')
 
     if location is None:
-        sys.exit("==> Please set LOCATION_RELEASE or LOCATION_SNAPSHOT in your environment\n"
-                 "==> E.g.: export 'ARTIFACTORY_LOCATION_SNAPSHOT=http://location', or: \n"
-                 "==> E.g.: export 'ARTIFACTORY_LOCATION_RELEASE=http://location'")
+        sys.exit("Please set LOCATION_RELEASE or LOCATION_SNAPSHOT in your environment\n"
+                 "E.g.: export 'ARTIFACTORY_LOCATION_SNAPSHOT=http://location', or: \n"
+                 "E.g.: export 'ARTIFACTORY_LOCATION_RELEASE=http://location'")
 
     box_out = os.path.join(location, boxname)
 
