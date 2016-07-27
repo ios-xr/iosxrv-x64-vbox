@@ -243,7 +243,7 @@ def configure_xr(argv):
             logger.debug("MGBL package not detected")
 
         # Wait for a management interface to be available
-        xr_cli_wait_for_output('sh run | inc MgmtEth', 'interface MgmtEth')
+        xr_cli_wait_for_output('sh run interface | inc MgmtEth', 'interface MgmtEth')
 
         child.sendline("conf t")
         child.expect("ios.config.*#", 10)
@@ -619,7 +619,7 @@ def main(argv):
     # Clean up VM used to generate box
     cleanup_vmname(vmname, vbox)
 
-    if args.skip_test is False:
+    if not args.skip_test:
         # Run basic sanity tests
         logger.info('Running basic unit tests on Vagrant VirtualBox...')
 

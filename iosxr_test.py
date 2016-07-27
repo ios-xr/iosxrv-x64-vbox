@@ -23,7 +23,6 @@ import argparse
 import os
 from iosxr_iso2vbox import set_logging, run
 import logging
-import time
 
 logger = logging.getLogger(__name__)
 set_logging()
@@ -98,9 +97,6 @@ def bringup_vagrant():
         logger.error("pxssh failed on login")
         logger.error(e)
 
-    logger.debug('Waiting 30 seconds...')
-    time.sleep(30)
-
 
 def test_linux():
     '''
@@ -125,34 +121,34 @@ def test_linux():
         logger.debug('Check user:')
         s.sendline('whoami')
         output = s.expect(['vagrant', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'Correct user found') is False:
+        if not check_result(output, 'Correct user found'):
             return False
         s.prompt()
 
         logger.debug('Check pinging the internet:')
         s.sendline("ping -c 4 google.com | grep '64 bytes' | wc -l")
         output = s.expect(['4', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'Successfully pinged') is False:
+        if not check_result(output, 'Successfully pinged'):
             return False
         s.prompt()
 
         logger.debug('Check resolv.conf is correctly populated:')
         s.sendline("cat /etc/resolv.conf | grep 220")
         output = s.expect(['nameserver 208.67.220.220', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'nameserver 208.67.220.220 is successfully populated') is False:
+        if not check_result(output, 'nameserver 208.67.220.220 is successfully populated'):
             return False
         s.prompt()
 
         s.sendline("cat /etc/resolv.conf | grep 222")
         output = s.expect(['nameserver 208.67.222.222', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'nameserver 208.67.222.222 is successfully populated') is False:
+        if not check_result(output, 'nameserver 208.67.222.222 is successfully populated'):
             return False
         s.prompt()
 
         logger.debug('Check vagrant public key has been replaced by private:')
         s.sendline('grep "public" ~/.ssh/authorized_keys -c')
         output = s.expect(['0', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'SSH public key successfully replaced') is False:
+        if not check_result(output, 'SSH public key successfully replaced'):
             return False
         s.prompt()
         s.logout()
@@ -200,14 +196,14 @@ def test_xr():
         logger.debug('Check show version:')
         s.sendline('show version | i cisco IOS XRv x64')
         output = s.expect(['XRv x64', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'XRv x64 correctly found in show version') is False:
+        if not check_result(output, 'XRv x64 correctly found in show version'):
             return False
         s.prompt()
 
         logger.debug('Check show run for username vagrant:')
         s.sendline('show run | i username')
         output = s.expect(['username vagrant', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'Username vagrant found') is False:
+        if not check_result(output, 'Username vagrant found'):
             return False
         s.prompt()
 
@@ -215,7 +211,7 @@ def test_xr():
             logger.debug('Check show run for grpc:')
             s.sendline('show run grpc')
             output = s.expect(['port 57777', pexpect.EOF, pexpect.TIMEOUT])
-            if check_result(output, 'grpc is configured') is False:
+            if not check_result(output, 'grpc is configured'):
                 return False
             s.prompt()
 
