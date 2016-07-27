@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 '''
 Author: Rich Wellum (richwellum@gmail.com)
 
@@ -21,7 +21,7 @@ from pexpect import pxssh
 import subprocess
 import argparse
 import os
-from iosxr_iso2vbox import set_logging, run, start_process
+from iosxr_iso2vbox import set_logging, run
 import logging
 import time
 
@@ -76,24 +76,21 @@ def bringup_vagrant():
     except OSError:
         pass
 
-    # Remove stale SSH entry
-    logger.debug('Removing stale SSH entries')
-    run(['ssh-keygen', '-R', '[localhost]:2222'])
-    run(['ssh-keygen', '-R', '[localhost]:2223'])
-
     logger.debug("Bringing up '%s'..." % input_box)
 
     run(['vagrant', 'init', 'XRv64-test'])  # Single node for now, in future could bring up two nodes and do more testing
     run(['vagrant', 'box', 'add', '--name', 'XRv64-test', input_box, '--force'])
-    start_process(['vagrant', 'up'])
+    output = run(['vagrant', 'up'])
+    print(output)
 
     # Find the correct port to connect to
     port = subprocess.check_output('vagrant port --guest 57722', shell=True)
     logger.debug('Connecting to port %s' % port)
 
     try:
-        s = pexpect.pxssh.pxssh()
-        # inconclusive - but may need auto_prompt_reset=False
+        s = pxssh.pxssh(options={
+            "StrictHostKeyChecking": "no",
+            "UserKnownHostsFile": "/dev/null"})
         s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, port)
         logger.debug('Sucessfully brought up VM and logged in')
         s.logout()
@@ -117,7 +114,9 @@ def test_linux():
     logger.debug('Connecting to port %s' % linux_port)
 
     try:
-        s = pxssh.pxssh()
+        s = pxssh.pxssh(options={
+            "StrictHostKeyChecking": "no",
+            "UserKnownHostsFile": "/dev/null"})
         s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, linux_port, auto_prompt_reset=False)
 
         s.prompt()
@@ -177,7 +176,7 @@ def test_xr():
     global iosxr_port
 
     if 'k9' not in input_box:
-        logger.debug('Not a crypto image, will not test XR as no SSH to access.')
+        logger.warning('Not a crypto image, will not test XR as no SSH to access.')
         return True
 
     logger.debug('Testing XR Console...')
@@ -185,7 +184,10 @@ def test_xr():
     logger.debug('Connecting to port %s' % iosxr_port)
 
     try:
-        s = pxssh.pxssh()
+        s = pxssh.pxssh(options={
+            "StrictHostKeyChecking": "no",
+            "UserKnownHostsFile": "/dev/null"})
+
         s.force_password = True
         s.PROMPT = 'RP/0/RP0/CPU0:ios# '
 
@@ -252,20 +254,18 @@ def main():
     # Bring the newly generated virtualbox up
     bringup_vagrant()
 
-    # Test IOS XR Console
-    result_xr = test_xr()
-
     # Test IOS XR Linux
     result_linux = test_linux()
 
+    # Test IOS XR Console
+    result_xr = test_xr()
+
     logger.debug('result_linux=%s, result_xr=%s' % (result_linux, result_xr))
 
-    if result_linux is not True or result_xr is not True:
-        logger.debug('==> One or more of IOS XR and IOS Linux test suites failed')
-        return False
+    if not (result_linux and result_xr):
+        sys.exit('Failed basic test, box is not sane')
     else:
-        logger.debug('==> Both IOS XR and IOS Linux test suites passed')
-        return True
+        logger.info('==> Both IOS XR and IOS Linux test suites passed')
 
 if __name__ == "__main__":
     main()

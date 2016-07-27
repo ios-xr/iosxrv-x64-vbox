@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 '''
 Author: Rich Wellum (richwellum@gmail.com)
 
@@ -136,15 +136,14 @@ def cleanup_vmname(name, box_name):
 
 
 def pause_to_debug():
-    if debug:
-        print("Pause before debug")
-        print("Use: 'socat TCP:localhost:65000 -,raw,echo=0,escape=0x1d' to access the VM")
-        raw_input("Press Enter to continue.")
-        # To debug post box creation, add the following lines to Vagrantfile
-        # config.vm.provider "virtualbox" do |v|
-        #   v.customize ["modifyvm", :id, "--uart1", "0x3F8", 4, "--uartmode1", 'tcpserver', 65005]
-        #   v.customize ["modifyvm", :id, "--uart2", "0x2F8", 3, "--uartmode2", 'tcpserver', 65006]
-        # end
+    print("Pause before debug")
+    print("Use: 'socat TCP:localhost:65000 -,raw,echo=0,escape=0x1d' to access the VM")
+    raw_input("Press Enter to continue.")
+    # To debug post box creation, add the following lines to Vagrantfile
+    # config.vm.provider "virtualbox" do |v|
+    #   v.customize ["modifyvm", :id, "--uart1", "0x3F8", 4, "--uartmode1", 'tcpserver', 65005]
+    #   v.customize ["modifyvm", :id, "--uart2", "0x2F8", 3, "--uartmode2", 'tcpserver', 65006]
+    # end
 
 
 def start_process(args):
@@ -358,7 +357,6 @@ def main(argv):
     copy_to_artifactory = False
     create_ova = False
     artifactory_reason = ''
-    global debug
 
     parser = argparse.ArgumentParser(
         formatter_class=RawDescriptionHelpFormatter,
@@ -386,7 +384,6 @@ def main(argv):
                         default=logging.INFO, help='turn on verbose messages')
 
     args = parser.parse_args()
-    debug = args.debug
 
     # Handle Input ISO (Local or URI)
     if re.search(':/', args.ISO_FILE):
@@ -578,7 +575,8 @@ def main(argv):
     configure_xr(args.verbose)
 
     # Good place to stop and take a look if --debug was entered
-    pause_to_debug()
+    if args.debug:
+        pause_to_debug()
 
     logger.info('Powering down and generating Vagrant VirtualBox')
 
@@ -618,14 +616,12 @@ def main(argv):
         run(['VBoxManage', 'export', vmname, '--output', ova_out])
         logger.debug('Created OVA %s', ova_out)
 
+    # Clean up VM used to generate box
+    cleanup_vmname(vmname, vbox)
+
     if args.skip_test is False:
         # Run basic sanity tests
         logger.info('Running basic unit tests on Vagrant VirtualBox...')
-
-        # Remove stale SSH entry
-        logger.debug('Removing stale SSH entries')
-        run(['ssh-keygen', '-R', '[localhost]:2222'])
-        run(['ssh-keygen', '-R', '[localhost]:2223'])
 
         if args.verbose == logging.DEBUG:
             verbose_str = '-v'
@@ -635,12 +631,7 @@ def main(argv):
 
         iosxr_test_path = os.path.join(pathname, 'iosxr_test.py')
         cmd_string = "python %s %s %s" % (iosxr_test_path, box_out, verbose_str)
-        result = (subprocess.check_output(cmd_string, shell=True))
-
-        if result is False:
-            sys.exit('Failed basic test, box %s is not sane' % box_out)
-        else:
-            logger.info('Passed basic test, box %s is sane', box_out)
+        subprocess.check_output(cmd_string, shell=True)
 
     logger.info('Single node use:')
     logger.info(" vagrant init 'IOS XRv'")
@@ -654,9 +645,6 @@ def main(argv):
     logger.info(" Or: 'vagrant up rtr1', 'vagrant up rtr2'")
 
     logger.info('Note that both the XR Console and the XR linux shell username and password is vagrant/vagrant')
-
-    # Clean up VM's used to build and test
-    cleanup_vmname(vmname, vbox)
 
     # Clean up default test VM
     run(['vagrant', 'destroy', '--force'], cont_on_error=True)

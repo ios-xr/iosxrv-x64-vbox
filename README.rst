@@ -99,6 +99,7 @@ How to use this tool
 5. Example with verbosity off
 
    ::
+
       iosxrv-x64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso
       [iosxr_iso2vbox.py:428 -                 main() ] Creating Vagrant VirtualBox
       [iosxr_iso2vbox.py:155 -         configure_xr() ] Logging into Vagrant Virtualbox and configuring IOS XR
@@ -161,7 +162,6 @@ VirtualBox_, and Pexpect_:
 See also: http://sourabhbajaj.com/mac-setup/Vagrant/README.html
 
 You may need to install Pexpect too:
-
 ::
 
    brew cask install python
