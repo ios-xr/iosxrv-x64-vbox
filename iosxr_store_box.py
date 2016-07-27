@@ -33,14 +33,17 @@ from __future__ import print_function
 import sys
 import os
 import smtplib
-from iosxr_iso2vbox import run
+from iosxr_iso2vbox import run, set_logging
 import argparse
 from argparse import RawDescriptionHelpFormatter
+import logging
+
+logger = logging.getLogger(__name__)
+set_logging()
 
 
 def main(argv):
     input_box = ''
-    verbose = False
     test_only = False
     artifactory_release = False
 
@@ -51,17 +54,17 @@ def main(argv):
     receiver = os.environ.get('ARTIFACTORY_RECEIVER')
 
     if artifactory_username is None:
-        sys.exit("==> Please set ARTIFACTORY_USERNAME in your environment\n"
+        sys.exit("Please set ARTIFACTORY_USERNAME in your environment\n"
                  "E.g., 'export ARTIFACTORY_USERNAME=<username>'")
     if artifactory_password is None:
-        sys.exit("==> Please set ARTIFACTORY_PASSWORD in your environment\n"
+        sys.exit("Please set ARTIFACTORY_PASSWORD in your environment\n"
                  "E.g. export 'ARTIFACTORY_PASSWORD=<PASSWORD>'")
     if sender is None:
-        sys.exit("==> Please set SENDER in your environment\n"
-                 "==> E.g. export 'ARTIFACTORY_SENDER=$USER@me.com'")
+        sys.exit("Please set SENDER in your environment\n"
+                 "E.g. export 'ARTIFACTORY_SENDER=$USER@me.com'")
     if receiver is None:
-        sys.exit("==> Please set RECEIVER in your environment\n"
-                 "==> E.g. export 'ARTIFACTORY_RECEIVER=updates@me.com'")
+        sys.exit("Please set RECEIVER in your environment\n"
+                 "E.g. export 'ARTIFACTORY_RECEIVER=updates@me.com'")
 
     # Suck in the input BOX and handle errors
     parser = argparse.ArgumentParser(
@@ -92,8 +95,10 @@ def main(argv):
                         help='Optionally specify a reason for uploading this box')
     parser.add_argument('-r', '--release', action='store_true',
                         help="upload to '$ARTIFACTORY_LOCATION_RELEASE' rather than '$ARTIFACTORY_LOCATION_SNAPSHOT'.")
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='turn on verbose messages')
+    parser.add_argument('-v', '--verbose',
+                        action='store_const', const=logging.DEBUG,
+                        default=logging.INFO, help='turn on verbose messages')
+
     parser.add_argument('-t', '--test_only', action='store_true',
                         help='test only, do not store the box or send an email')
 
@@ -105,43 +110,24 @@ def main(argv):
         args.message = 'No reason for update specified'
     message = args.message
     artifactory_release = args.release
-    verbose = args.verbose
     test_only = args.test_only
 
     if not input_box:
-        print('No input box detected, use -b to specify a box')
-        sys.exit()
+        sys.exit('No input box detected, use -b to specify a box')
 
     if not os.path.exists(input_box):
-        print('==>', input_box, 'does not exist')
-        sys.exit()
+        sys.exit('%s does not exist' % input_box)
 
     boxname = os.path.basename(os.path.splitext(input_box)[0]) + '.box'
 
-    prog = 'iosxr_store_box.py'
+    logger.setLevel(level=args.verbose)
 
-    # If verbose is set then print
-    if verbose:
-        def verboseprint(*args):
-            '''
-            If user runs with -v or -verbose print logs
-
-            Print each argument separately so caller doesn't need to
-            stuff everything to be printed into a single string
-            '''
-            print('==> %s: ' % prog, end="")
-            for arg in args:
-                print(arg,)
-    else:
-        def verboseprint(*args):
-            pass
-
-    verboseprint("Input box is: '%s'" % input_box)
-    verboseprint("Message is:   '%s'" % message)
-    verboseprint("Sender is:    '%s'" % sender)
-    verboseprint("Receiver is:  '%s'" % receiver)
-    verboseprint("Release is:   '%s'" % artifactory_release)
-    verboseprint("Test Only is: '%s'" % test_only)
+    logger.debug("Input box is: '%s'" % input_box)
+    logger.debug("Message is:   '%s'" % message)
+    logger.debug("Sender is:    '%s'" % sender)
+    logger.debug("Receiver is:  '%s'" % receiver)
+    logger.debug("Release is:   '%s'" % artifactory_release)
+    logger.debug("Test Only is: '%s'" % test_only)
 
     '''
     Copy the box to artifactory. This will most likely change to Atlas, or maybe both.
@@ -154,17 +140,17 @@ def main(argv):
         location = os.environ.get('ARTIFACTORY_LOCATION_SNAPSHOT')
 
     if location is None:
-        sys.exit("==> Please set LOCATION_RELEASE or LOCATION_SNAPSHOT in your environment\n"
-                 "==> E.g.: export 'ARTIFACTORY_LOCATION_SNAPSHOT=http://location', or: \n"
-                 "==> E.g.: export 'ARTIFACTORY_LOCATION_RELEASE=http://location'")
+        sys.exit("Please set LOCATION_RELEASE or LOCATION_SNAPSHOT in your environment\n"
+                 "E.g.: export 'ARTIFACTORY_LOCATION_SNAPSHOT=http://location', or: \n"
+                 "E.g.: export 'ARTIFACTORY_LOCATION_RELEASE=http://location'")
 
     box_out = os.path.join(location, boxname)
 
     if test_only is True:
-        verboseprint('Test only: copying %s to %s' % (input_box, box_out))
+        logger.debug('Test only: copying %s to %s' % (input_box, box_out))
     else:
-        verboseprint('Copying %s to %s' % (box_out, box_out))
-        run('curl -X PUT -u %s:%s -T %s %s' % (artifactory_username, artifactory_password, input_box, box_out))
+        logger.debug('Copying %s to %s' % (box_out, box_out))
+        run(['curl', '-X', 'PUT', '-u', artifactory_username, ':', artifactory_password, '-T', input_box, box_out])
 
     # Format an email message and send to the interest list
     email = """From: <%s>
@@ -180,18 +166,19 @@ Reason for update: %s
 \n vagrant ssh
         """ % (sender, receiver, location, message, box_out, box_out)
 
-    verboseprint('Email is:')
-    print(email)
+    if args.verbose == logging.DEBUG or test_only:
+        print('Email is:')
+        print(email)
 
     if test_only is False:
         try:
             smtpObj = smtplib.SMTP('mail.cisco.com')
             smtpObj.sendmail(sender, receiver, email)
-            verboseprint('Successfully sent update email')
+            logger.info('Successfully sent update email')
         except smtplib.SMTPException:
-            verboseprint('Error: unable to send update email')
-    else:
-        verboseprint('Test only: Not sending email')
+            logger.error('Unable to send update email')
+        else:
+            logger.debug('Test only: Not sending email')
 
 if __name__ == '__main__':
     main(sys.argv[1:])

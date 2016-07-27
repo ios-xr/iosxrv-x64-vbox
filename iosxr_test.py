@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 '''
 Author: Rich Wellum (richwellum@gmail.com)
 
@@ -21,8 +21,11 @@ from pexpect import pxssh
 import subprocess
 import argparse
 import os
-from iosxr_iso2vbox import run
-import paramiko
+from iosxr_iso2vbox import set_logging, run
+import logging
+
+logger = logging.getLogger(__name__)
+set_logging()
 
 try:
     raw_input
@@ -32,8 +35,8 @@ except NameError:
 # Some defaults
 terminal_type = 'ansi'
 linux_prompt = r"[#$]"
-xr_prompt = "[$#]"
-login_timeout = 10
+xr_prompt = r"[$#]"
+login_timeout = 600
 hostname = "localhost"
 username = "vagrant"
 password = "vagrant"
@@ -45,16 +48,16 @@ def check_result(result, success_message):
     Accepts a success message.
     '''
     if result == 0:
-        print('==>Test passed: %s' % success_message)
+        logger.debug('Test passed: %s' % success_message)
         return True
     elif result == 1:
-        print('==>EOF - Test failed')
+        logger.warning('EOF - Test failed')
         return False
     elif result == 2:
-        print('==> Timed out - Test failed')
+        logger.warning(' Timed out - Test failed')
         return False
     else:
-        print('==> Generic - Test failed')
+        logger.warning(' Generic - Test failed')
         return False
 
 
@@ -72,25 +75,27 @@ def bringup_vagrant():
     except OSError:
         pass
 
-    print('Cleaning up ssh keys')
-    run('ssh-keygen -R [localhost]:2222')
-    run('ssh-keygen -R [localhost]:2223')
+    logger.debug("Bringing up '%s'..." % input_box)
 
-    print("Bringing up '%s'..." % input_box)
-
-    run('vagrant init XRv64-test')  # Single node for now, in future could bring up two nodes and do more testing
-    run('vagrant box add --name XRv64-test %s --force' % input_box)
-    run('vagrant up')
+    run(['vagrant', 'init', 'XRv64-test'])  # Single node for now, in future could bring up two nodes and do more testing
+    run(['vagrant', 'box', 'add', '--name', 'XRv64-test', input_box, '--force'])
+    output = run(['vagrant', 'up'])
+    print(output)
 
     # Find the correct port to connect to
     port = subprocess.check_output('vagrant port --guest 57722', shell=True)
+    logger.debug('Connecting to port %s' % port)
 
     try:
-        s = pexpect.pxssh.pxssh()
+        s = pxssh.pxssh(options={
+            "StrictHostKeyChecking": "no",
+            "UserKnownHostsFile": "/dev/null"})
         s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, port)
+        logger.debug('Sucessfully brought up VM and logged in')
+        s.logout()
     except pxssh.ExceptionPxssh, e:
-        print("pxssh failed on login")
-        print(str(e))
+        logger.error("pxssh failed on login")
+        logger.error(e)
 
 
 def test_linux():
@@ -100,56 +105,59 @@ def test_linux():
     Verify can ping 'google.com'.
     Verify resolv.conf is populated.
     '''
-    print('Testing XR Linux...')
+    logger.debug('Testing XR Linux...')
     linux_port = subprocess.check_output('vagrant port --guest 57722', shell=True)
-    print('Connecting to port %s' % linux_port)
+    logger.debug('Connecting to port %s' % linux_port)
 
     try:
-        s = pxssh.pxssh()
-        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, linux_port)
-        s.prompt()
-        print('==>Successfully logged into XR Linux')
+        s = pxssh.pxssh(options={
+            "StrictHostKeyChecking": "no",
+            "UserKnownHostsFile": "/dev/null"})
+        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, linux_port, auto_prompt_reset=False)
 
-        print('Check user:')
+        s.prompt()
+        logger.debug('Successfully logged into XR Linux')
+
+        logger.debug('Check user:')
         s.sendline('whoami')
         output = s.expect(['vagrant', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'Correct user found') is False:
+        if not check_result(output, 'Correct user found'):
             return False
         s.prompt()
 
-        print('Check pinging the internet:')
+        logger.debug('Check pinging the internet:')
         s.sendline("ping -c 4 google.com | grep '64 bytes' | wc -l")
         output = s.expect(['4', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'Successfully pinged') is False:
+        if not check_result(output, 'Successfully pinged'):
             return False
         s.prompt()
 
-        print('Check resolv.conf is correctly populated:')
+        logger.debug('Check resolv.conf is correctly populated:')
         s.sendline("cat /etc/resolv.conf | grep 220")
         output = s.expect(['nameserver 208.67.220.220', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'nameserver 208.67.220.220 is successfully populated') is False:
+        if not check_result(output, 'nameserver 208.67.220.220 is successfully populated'):
             return False
         s.prompt()
 
         s.sendline("cat /etc/resolv.conf | grep 222")
         output = s.expect(['nameserver 208.67.222.222', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'nameserver 208.67.222.222 is successfully populated') is False:
+        if not check_result(output, 'nameserver 208.67.222.222 is successfully populated'):
             return False
         s.prompt()
 
-        print('Check vagrant public key has been replaced by private:')
+        logger.debug('Check vagrant public key has been replaced by private:')
         s.sendline('grep "public" ~/.ssh/authorized_keys -c')
         output = s.expect(['0', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'SSH public key successfully replaced') is False:
+        if not check_result(output, 'SSH public key successfully replaced'):
             return False
         s.prompt()
         s.logout()
     except pxssh.ExceptionPxssh as e:
-        print("==>pxssh failed on login.")
-        print(e)
+        logger.error("pxssh failed on login.")
+        logger.error(e)
         return False
     else:
-        print("==>Vagrant SSH to XR Linux is sane")
+        logger.debug("Vagrant SSH to XR Linux is sane")
         return True
 
 
@@ -163,12 +171,19 @@ def test_xr():
     '''
     global iosxr_port
 
-    print('Testing XR Console...')
+    if 'k9' not in input_box:
+        logger.warning('Not a crypto image, will not test XR as no SSH to access.')
+        return True
+
+    logger.debug('Testing XR Console...')
     iosxr_port = subprocess.check_output('vagrant port --guest 22', shell=True)
-    print('Connecting to port %s' % iosxr_port)
+    logger.debug('Connecting to port %s' % iosxr_port)
 
     try:
-        s = pxssh.pxssh()
+        s = pxssh.pxssh(options={
+            "StrictHostKeyChecking": "no",
+            "UserKnownHostsFile": "/dev/null"})
+
         s.force_password = True
         s.PROMPT = 'RP/0/RP0/CPU0:ios# '
 
@@ -176,110 +191,61 @@ def test_xr():
         s.prompt()
         s.sendline('term length 0')
         s.prompt()
-        print('==>Successfully logged into XR Console')
+        logger.debug('Successfully logged into XR Console')
 
-        print('Check show version:')
+        logger.debug('Check show version:')
         s.sendline('show version | i cisco IOS XRv x64')
         output = s.expect(['XRv x64', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'XRv x64 correctly found in show version') is False:
+        if not check_result(output, 'XRv x64 correctly found in show version'):
             return False
         s.prompt()
 
-        print('Check show run for username vagrant:')
+        logger.debug('Check show run for username vagrant:')
         s.sendline('show run | i username')
         output = s.expect(['username vagrant', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'Username vagrant found') is False:
+        if not check_result(output, 'Username vagrant found'):
             return False
         s.prompt()
 
         if 'full' in input_box:
-            print('Check show run for grpc:')
+            logger.debug('Check show run for grpc:')
             s.sendline('show run grpc')
             output = s.expect(['port 57777', pexpect.EOF, pexpect.TIMEOUT])
-            if check_result(output, 'grpc is configured') is False:
+            if not check_result(output, 'grpc is configured'):
                 return False
             s.prompt()
 
         s.logout()
     except pxssh.ExceptionPxssh as e:
-        print("==>pxssh failed on login.")
-        print(e)
+        logger.error("pxssh failed on login.")
+        logger.debug(e)
     else:
-        print("==>Vagrant SSH to XR Console is sane")
-        return True
-
-
-def test_scp_to_scratch():
-    '''
-    Test scp'ing a file to IOS XR.
-    Not working yet.
-    '''
-
-    pathname = os.path.abspath(os.path.dirname(sys.argv[0]))
-    test_path = os.path.join(pathname, 'test.txt')
-
-    run('echo rich-test > %s' % test_path)
-
-    remote_path = '/misc/app_host/scratch/test.txt'
-    hostname = ''
-    username = 'vagrant'
-    password = 'vagrant'
-
-    ssh = paramiko.SSHClient()
-    ssh.load_host_keys(os.path.expanduser(os.path.join("~", ".ssh", "known_hosts")))
-    # s.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(hostname, iosxr_port, username, password, allow_agent=False, look_for_keys=False)
-
-    sftp = ssh.open_sftp()
-    sftp.put(test_path, remote_path)
-
-    sftp.close()
-    ssh.close()
-
-    linux_port = subprocess.check_output('vagrant port --guest 57722', shell=True)
-    print('Connecting to port %s' % linux_port)
-
-    try:
-        s = pxssh.pxssh()
-        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, linux_port)
-        s.prompt()
-        print('==>Successfully logged into XR Linux')
-
-        print('Check SCP file exists:')
-        s.sendline('grep "rich-test" /misc/app_host/scratch -c')
-        output = s.expect(['0', pexpect.EOF, pexpect.TIMEOUT])
-        if check_result(output, 'SCP file found') is False:
-            return False
-        s.prompt()
-        s.logout()
-    except pxssh.ExceptionPxssh as e:
-        print("==>pxssh failed on login.")
-        print(e)
-        return False
-    else:
-        print("==>SCP test is sane")
+        logger.debug("Vagrant SSH to XR Console is sane")
         return True
 
 
 def main():
     # Get virtualbox
     global input_box
+    global verbose
+
     parser = argparse.ArgumentParser(description='Pass in a vagrant box')
     parser.add_argument("a", nargs='?', default="check_string_for_empty")
+    parser.add_argument('-v', '--verbose',
+                        action='store_const', const=logging.DEBUG,
+                        default=logging.INFO, help='turn on verbose messages')
+
     args = parser.parse_args()
+    verbose = args.verbose
 
     if args.a == 'check_string_for_empty':
-        print('No argument given')
-        print('Usage: iosxr_test.py <boxname>')
-        sys.exit(1)
+        sys.exit('No argument given, Usage: iosxr_test.py <boxname>')
     else:
         input_box = args.a
         if not os.path.exists(input_box):
-            print(input_box, 'does not exist')
-            sys.exit()
+            sys.exit(input_box, 'does not exist')
 
-    print('Destroying previous default VM')
-    run('vagrant destroy --force')
+    logger.setLevel(level=args.verbose)
 
     # Bring the newly generated virtualbox up
     bringup_vagrant()
@@ -290,26 +256,13 @@ def main():
     # Test IOS XR Console
     result_xr = test_xr()
 
-    # Test scping to scratch space
-    # test_scp_to_scratch()
+    logger.debug('result_linux=%s, result_xr=%s' % (result_linux, result_xr))
 
-    # Testing finished - clean up now
-    run('vagrant destroy --force')
-
-    # Clean up Vagrantfile
-    try:
-        os.remove('Vagrantfile')
-    except OSError:
-        pass
-
-    print('result_linux=%s, result_xr=%s' % (result_linux, result_xr))
-
-    if result_linux is False or result_xr is False:
-        print('==> One or more of IOS XR and IOS Linux test suites failed')
-        return False
+    if not (result_linux and result_xr):
+        sys.exit('Failed basic test, box is not sane')
     else:
-        print('==> Both IOS XR and IOS Linux test suites passed')
-        return True
+        logger.info('Both IOS XR and IOS Linux test suites passed')
+        return
 
 if __name__ == "__main__":
     main()

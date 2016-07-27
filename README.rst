@@ -85,20 +85,65 @@ How to use this tool
 1. git clone this repo:
 
    ::
-   
+
       git clone https://github.com/ios-xr/iosxrv-x64-vbox.git
 
-2. Install VirtualBox and Vagrant (see guide below).
+2. Install VirtualBox, Vagrant and socat (see guide below).
 3. Download the appropriate ISO file, e.g. ``iosxrv-fullk9-x64.iso``
 4. Generate the VirtualBox box:
 
    ::
-   
-      ./iosxrv-x64-vbox/iosxr_iso2vbox.py -i iosxrv-fullk9-x64.iso
 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-How to install Vagrant and VirtualBox
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      ./iosxrv-x64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso
+
+5. Example with verbosity off
+
+   ::
+
+      iosxrv-x64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso
+      [iosxr_iso2vbox.py:428 -                 main() ] Creating Vagrant VirtualBox
+      [iosxr_iso2vbox.py:155 -         configure_xr() ] Logging into Vagrant Virtualbox and configuring IOS XR
+      [iosxr_iso2vbox.py:584 -                 main() ] Powering down and generating Vagrant VirtualBox
+      [iosxr_iso2vbox.py:614 -                 main() ] Created: /Users/rwellum/Desktop/Boxes/machines/iosxrv-fullk9-x64/iosxrv-fullk9-x64.box
+      [iosxr_iso2vbox.py:624 -                 main() ] Running basic unit tests on Vagrant VirtualBox...
+      [iosxr_iso2vbox.py:645 -                 main() ] Passed basic test, box /Users/rwellum/Desktop/Boxes/machines/iosxrv-fullk9-x64/iosxrv-fullk9-x64.box is sane
+
+6. Full help
+
+   ::
+
+      iosxrv-x64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso -h
+      usage: iosxr_iso2vbox.py [-h] [-a ['New box reason']] [-o] [-s] [-d] [-v]
+             ISO_FILE
+
+      A tool to create an IOS XRv Vagrant VirtualBox box from an IOS XRv ISO.
+
+      The ISO will be installed, booted, configured and unit-tested.
+      "vagrant ssh" provides access to IOS XR Linux global-vrf namespace
+      with internet access.
+
+      positional arguments:
+      ISO_FILE              local ISO filename or remote URI ISO filename...
+
+      optional arguments:
+      -h, --help            show this help message and exit
+      -a ['New box reason'], --artifactory ['New box reason']
+                            Upload box to Artifactory. You can optionally specify
+                            a reason for uploading this box
+      -o, --create_ova      additionally use vboxmanage to export an OVA
+      -s, --skip_test       skip unit testing
+      -d, --debug           will exit with the VM in a running state. Use: socat
+                            TCP:localhost:65000 -,raw,echo=0,escape=0x1d to access
+      -v, --verbose         turn on verbose messages
+
+      E.g.:
+      box build with local iso: iosxr-xrv64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso
+      box build with remote iso: iosxr-xrv64-vbox/iosxr_iso2vbox.py user@server:/myboxes/iosxrv-fullk9-x64.iso
+      box build with ova export, verbose and upload to artifactory: iosxr-xrv64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso -o -v -a 'New Image'
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+How to install Vagrant, VirtualBox and socat
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 This example is specific to OS X and is a guide only, users should
 research what their particular environment requires to run Vagrant_,
 VirtualBox_, and Pexpect_:
@@ -112,11 +157,11 @@ VirtualBox_, and Pexpect_:
    /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
    brew cask install virtualbox
    brew cask install vagrant
+   brew install socat
 
 See also: http://sourabhbajaj.com/mac-setup/Vagrant/README.html
 
 You may need to install Pexpect too:
-
 ::
 
    brew cask install python
@@ -137,18 +182,19 @@ How to bring up a single node instance:
      vagrant init 'IOS XRv'
      vagrant box add --name 'IOS XRv' iosxrv-fullk9-x64.box --force
      vagrant up
-     # Wait for vagrant to finish and prompt you
+
+* Wait for vagrant to finish and prompt you
 
 * To access operns App Hosting / XR Linux space:
   ::
-  
+
      vagrant ssh
 
 * To access XR Console:
   ::
-  
+
      ssh -p 2222 vagrant@127.0.0.1
-   
+
   Note this port number can be changed by Vagrant, so ``vagrant port`` will
   list the ports.
 
@@ -160,19 +206,19 @@ How to bring up multiple node instances:
 * Note that this Vagrantfile will pull the ubuntu VM from Atlas.
 * Add the box to Vagrant and bring up the topology:
   ::
-  
+
      vagrant box add --name 'IOS XRv' iosxrv-fullk9-x64.box --force
      vagrant up
- 
+
 * To access opernns App Hosting / XR Linux spaces:
   ::
-  
-    vagrant ssh rtr1 
+
+    vagrant ssh rtr1
     vagrant ssh rtr2
- 
+
 * To access XR Console:
   ::
-  
+
     # List the ports assigned to a given node
     vagrant port rtr2
     # Then do: ssh vagrant@localhost -p <port from above>
