@@ -292,9 +292,7 @@ def configure_xr(argv):
         child.sendline("bash -c sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config_operns")
         child.expect(prompt)
 
-        # Add passwordless sudo as required by jenkins sudo not
-        # vagrant because we are operating in xrnns and global-vrf
-        # user space
+        # Add passwordless sudo
         child.sendline("bash -c echo '####Added by iosxr_setup to give vagrant passwordless access' | (EDITOR='tee -a' visudo)")
         child.expect(prompt)
         child.sendline("bash -c echo 'vagrant ALL=(ALL) NOPASSWD: ALL' | (EDITOR='tee -a' visudo)")
@@ -316,7 +314,7 @@ def configure_xr(argv):
         # Add Cisco OpenDNS IPv4 nameservers as a default DNS resolver
         # almost all users who have internet connectivity will be able to reach those.
         # This will prevent users from needing to supply another Vagrantfile or editing /etc/resolv.conf manually
-        # Doing this in xrnns because the syncing of /etc/netns/global-vrf/resolv.conf to
+        # Doing this in xrnns (run) because the syncing of /etc/netns/global-vrf/resolv.conf to
         # /etc/resolv.conf requires 'ip netns exec global-vrf bash'.
         child.sendline("run echo '# Cisco OpenDNS IPv4 nameservers' >> /etc/resolv.conf")
         child.expect(prompt)
@@ -415,8 +413,6 @@ def main(argv):
     set_logging()
     logger.setLevel(level=args.verbose)
 
-    # verbose = args.verbose
-
     logger.debug('Input ISO is %s', input_iso)
 
     # Set the RAM according to mini of full ISO
@@ -492,7 +488,7 @@ def main(argv):
     run(['VBoxManage', 'modifyvm', vmname, '--cpus', '2'])
 
     # Setup networking - including ssh
-    logger.debug('Create four NICs')
+    logger.debug('Create eight NICs')
     run(['VBoxManage', 'modifyvm', vmname, '--nic1', 'nat', '--nictype1', 'virtio'])
     run(['VBoxManage', 'modifyvm', vmname, '--nic2', 'nat', '--nictype2', 'virtio'])
     run(['VBoxManage', 'modifyvm', vmname, '--nic3', 'nat', '--nictype3', 'virtio'])
@@ -572,6 +568,7 @@ def main(argv):
             time.sleep(5)
             continue
 
+    # Configure IOS XR and IOS XR Linux
     configure_xr(args.verbose)
 
     # Good place to stop and take a look if --debug was entered
@@ -619,8 +616,8 @@ def main(argv):
     # Clean up VM used to generate box
     cleanup_vmname(vmname, vbox)
 
+    # Run basic sanity tests unless -s
     if not args.skip_test:
-        # Run basic sanity tests
         logger.info('Running basic unit tests on Vagrant VirtualBox...')
 
         if args.verbose == logging.DEBUG:
@@ -655,6 +652,7 @@ def main(argv):
     except OSError:
         pass
 
+    # Copy to artifactory if -a
     if copy_to_artifactory is True:
         logger.info('Copying Vagrant Virtualbox to Artifactory')
         iosxr_store_box_path = os.path.join(pathname, 'iosxr_store_box.py')
