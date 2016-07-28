@@ -150,7 +150,7 @@ def main(argv):
         logger.debug('Test only: copying %s to %s' % (input_box, box_out))
     else:
         logger.debug('Copying %s to %s' % (box_out, box_out))
-        run(['curl', '-X', 'PUT', '-u', artifactory_username + ':' + artifactory_password, '-T', input_box, box_out])
+        run(['curl', '-X', 'PUT', '-u', artifactory_username + ':' + artifactory_password, '-T', input_box, box_out, '--progress-bar'])
 
     # Format an email message and send to the interest list
     email = """From: <%s>
