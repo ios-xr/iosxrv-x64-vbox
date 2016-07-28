@@ -169,7 +169,7 @@ You may need to install Pexpect too:
 
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Once box is created - how do I run it?
+Once box is created - how do I bring it up?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 '''''''''''''''''''''''''''''''''''''''
