@@ -84,9 +84,9 @@ def main(argv):
         'ARTIFACTORY_SENDER\n ' +
         'ARTIFACTORY_RECEIVER',
         epilog="E.g.:\n" +
-        "iosxrv-x64-vbox/iosxr_store_box.py -b iosxrv-fullk9-x64.box --release --verbose --message 'A new box because...'\n" +
-        "iosxrv-x64-vbox/iosxr_store_box.py -b iosxrv-fullk9-x64.box --release, --message 'A new box because...'\n"
-        "iosxrv-x64-vbox/iosxr_store_box.py -b iosxrv-fullk9-x64.box -r -v -m 'Latest box for release.'\n")
+        "iosxrv-x64-vbox/iosxr_store_box.py iosxrv-fullk9-x64.box --release --verbose --message 'A new box because...'\n" +
+        "iosxrv-x64-vbox/iosxr_store_box.py iosxrv-fullk9-x64.box --release, --message 'A new box because...'\n"
+        "iosxrv-x64-vbox/iosxr_store_box.py iosxrv-fullk9-x64.box -r -v -m 'Latest box for release.'\n")
 
     parser.add_argument('BOX_FILE',
                         help='BOX filename')
@@ -150,7 +150,7 @@ def main(argv):
         logger.debug('Test only: copying %s to %s' % (input_box, box_out))
     else:
         logger.debug('Copying %s to %s' % (box_out, box_out))
-        run(['curl', '-X', 'PUT', '-u', artifactory_username, ':', artifactory_password, '-T', input_box, box_out])
+        run(['curl', '-X', 'PUT', '-u', artifactory_username + ':' + artifactory_password, '-T', input_box, box_out])
 
     # Format an email message and send to the interest list
     email = """From: <%s>
@@ -177,8 +177,8 @@ Reason for update: %s
             logger.info('Successfully sent update email')
         except smtplib.SMTPException:
             logger.error('Unable to send update email')
-        else:
-            logger.debug('Test only: Not sending email')
+    else:
+        logger.debug('Test only: Not sending email')
 
 if __name__ == '__main__':
     main(sys.argv[1:])
