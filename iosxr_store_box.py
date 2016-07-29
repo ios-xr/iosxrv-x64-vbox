@@ -178,12 +178,13 @@ Subject: A new IOS XRv (64-bit) vagrant box has been posted to artifactory %s
 
 Reason for update: %s
 \nVagrant Box: %s
+\nHash File is: %s
 \nTo use:
 \n vagrant init 'IOS XRv'
 \n vagrant box add --name 'IOS XRv' %s --force
 \n vagrant up
 \n vagrant ssh
-        """ % (sender, receiver, location, message, box_out, box_out)
+        """ % (sender, receiver, location, message, box_out, hash_out, box_out)
 
     if args.verbose == logging.DEBUG or test_only:
         print('Email is:')
