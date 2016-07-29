@@ -43,6 +43,18 @@ logger = logging.getLogger(__name__)
 set_logging()
 
 
+def generate_hash(file):
+    global hash_file
+    # SHA256 the box file and store in same location
+    sha256_hash = hashlib.sha256(open(file, 'rb').read()).hexdigest()
+    logger.debug('SHA256: %s' % sha256_hash)
+    hash_file = os.path.splitext(file)[0] + '.sha256'
+    f = open(hash_file, 'w')
+    f.write(sha256_hash)
+    f.close()
+    logger.debug('Hash file is %s' % hash_file)
+
+
 def main(argv):
     input_box = ''
     test_only = False
@@ -101,8 +113,6 @@ def main(argv):
                         default=logging.INFO, help='turn on verbose messages')
     parser.add_argument('-t', '--test_only', action='store_true',
                         help='test only, do not store the box or send an email')
-    parser.add_argument('-s', '--store_only', action='store_true',
-                        help='store the box but do not sent an email')
 
     args = parser.parse_args()
 
@@ -113,7 +123,6 @@ def main(argv):
     message = args.message
     artifactory_release = args.release
     test_only = args.test_only
-    store_only = args.store_only
 
     if not input_box:
         sys.exit('No input box detected, use -b to specify a box')
@@ -131,12 +140,12 @@ def main(argv):
     logger.debug("Receiver is:   '%s'" % receiver)
     logger.debug("Release is:    '%s'" % artifactory_release)
     logger.debug("Test Only is:  '%s'" % test_only)
-    logger.debug("Store Only is: '%s'" % store_only)
 
     '''
     Copy the box to artifactory. This will most likely change to Atlas, or maybe both.
     The code below shows how to make two copies, one is the latest and one has a date on it.
     '''
+
     # Find the appopriate LOCATION
     if artifactory_release is True:
         location = os.environ.get('ARTIFACTORY_LOCATION_RELEASE')
@@ -149,23 +158,18 @@ def main(argv):
                  "E.g.: export 'ARTIFACTORY_LOCATION_RELEASE=http://location'")
 
     box_out = os.path.join(location, boxname)
+    generate_hash(input_box)
+    hash_out = os.path.join(location, os.path.basename(hash_file))
 
     if test_only is True:
         logger.debug('Test only: copying %s to %s' % (input_box, box_out))
+        logger.debug('Test only: copying %s to %s' % (hash_file, hash_out))
     else:
         # Copy to artifactory
-        logger.debug('Copying %s to %s' % (box_out, box_out))
+        logger.debug('Copying %s to %s' % (input_box, box_out))
         run(['curl', '-X', 'PUT', '-u', artifactory_username + ':' + artifactory_password, '-T', input_box, box_out, '--progress-bar'])
-
-        # SHA256 the box file and store in same location
-        sha256_hash = hashlib.sha256(open(input_box, 'rb').read()).hexdigest()
-        logger.debug('SHA256: %s' % sha256_hash)
-        hash_file = os.path.splitext(input_box)[0] + '.sha256'
-        f = open(hash_file, 'w')
-        f.write(sha256_hash)
-        f.close()
-        logger.debug('Hash file is %s' % hash_file)
-        run(['curl', '-X', 'PUT', '-u', artifactory_username + ':' + artifactory_password, '-T', hash_file, location])
+        logger.debug('Copying %s to %s' % (hash_file, hash_out))
+        run(['curl', '-X', 'PUT', '-u', artifactory_username + ':' + artifactory_password, '-T', hash_file, hash_out])
 
     # Format an email message and send to the interest list
     email = """From: <%s>
@@ -181,11 +185,11 @@ Reason for update: %s
 \n vagrant ssh
         """ % (sender, receiver, location, message, box_out, box_out)
 
-    if args.verbose == logging.DEBUG or test_only or not store_only:
+    if args.verbose == logging.DEBUG or test_only:
         print('Email is:')
         print(email)
 
-    if not test_only or not store_only:
+    if test_only is False:
         try:
             smtpObj = smtplib.SMTP('mail.cisco.com')
             smtpObj.sendmail(sender, receiver, email)
