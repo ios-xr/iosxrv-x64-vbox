@@ -134,12 +134,12 @@ def main(argv):
 
     logger.setLevel(level=args.verbose)
 
-    logger.debug("Input box is:  '%s'" % input_box)
-    logger.debug("Message is:    '%s'" % message)
-    logger.debug("Sender is:     '%s'" % sender)
-    logger.debug("Receiver is:   '%s'" % receiver)
-    logger.debug("Release is:    '%s'" % artifactory_release)
-    logger.debug("Test Only is:  '%s'" % test_only)
+    logger.debug("Input box is: '%s'" % input_box)
+    logger.debug("Message is:   '%s'" % message)
+    logger.debug("Sender is:    '%s'" % sender)
+    logger.debug("Receiver is:  '%s'" % receiver)
+    logger.debug("Release is:   '%s'" % artifactory_release)
+    logger.debug("Test Only is: '%s'" % test_only)
 
     '''
     Copy the box to artifactory. This will most likely change to Atlas, or maybe both.
