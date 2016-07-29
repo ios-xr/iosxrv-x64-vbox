@@ -178,7 +178,7 @@ Subject: A new IOS XRv (64-bit) vagrant box has been posted to artifactory %s
 
 Reason for update: %s
 \nVagrant Box: %s
-\nHash File is: %s
+\nHash File  : %s
 \nTo use:
 \n vagrant init 'IOS XRv'
 \n vagrant box add --name 'IOS XRv' %s --force
