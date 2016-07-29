@@ -37,6 +37,7 @@ from iosxr_iso2vbox import run, set_logging
 import argparse
 from argparse import RawDescriptionHelpFormatter
 import logging
+import hashlib
 
 logger = logging.getLogger(__name__)
 set_logging()
@@ -98,9 +99,10 @@ def main(argv):
     parser.add_argument('-v', '--verbose',
                         action='store_const', const=logging.DEBUG,
                         default=logging.INFO, help='turn on verbose messages')
-
     parser.add_argument('-t', '--test_only', action='store_true',
                         help='test only, do not store the box or send an email')
+    parser.add_argument('-s', '--store_only', action='store_true',
+                        help='store the box but do not sent an email')
 
     args = parser.parse_args()
 
@@ -111,6 +113,7 @@ def main(argv):
     message = args.message
     artifactory_release = args.release
     test_only = args.test_only
+    store_only = args.store_only
 
     if not input_box:
         sys.exit('No input box detected, use -b to specify a box')
@@ -122,12 +125,13 @@ def main(argv):
 
     logger.setLevel(level=args.verbose)
 
-    logger.debug("Input box is: '%s'" % input_box)
-    logger.debug("Message is:   '%s'" % message)
-    logger.debug("Sender is:    '%s'" % sender)
-    logger.debug("Receiver is:  '%s'" % receiver)
-    logger.debug("Release is:   '%s'" % artifactory_release)
-    logger.debug("Test Only is: '%s'" % test_only)
+    logger.debug("Input box is:  '%s'" % input_box)
+    logger.debug("Message is:    '%s'" % message)
+    logger.debug("Sender is:     '%s'" % sender)
+    logger.debug("Receiver is:   '%s'" % receiver)
+    logger.debug("Release is:    '%s'" % artifactory_release)
+    logger.debug("Test Only is:  '%s'" % test_only)
+    logger.debug("Store Only is: '%s'" % store_only)
 
     '''
     Copy the box to artifactory. This will most likely change to Atlas, or maybe both.
@@ -149,8 +153,19 @@ def main(argv):
     if test_only is True:
         logger.debug('Test only: copying %s to %s' % (input_box, box_out))
     else:
+        # Copy to artifactory
         logger.debug('Copying %s to %s' % (box_out, box_out))
         run(['curl', '-X', 'PUT', '-u', artifactory_username + ':' + artifactory_password, '-T', input_box, box_out, '--progress-bar'])
+
+        # SHA256 the box file and store in same location
+        sha256_hash = hashlib.sha256(open(input_box, 'rb').read()).hexdigest()
+        logger.debug('SHA256: %s' % sha256_hash)
+        hash_file = os.path.splitext(input_box)[0] + '.sha256'
+        f = open(hash_file, 'w')
+        f.write(sha256_hash)
+        f.close()
+        logger.debug('Hash file is %s' % hash_file)
+        run(['curl', '-X', 'PUT', '-u', artifactory_username + ':' + artifactory_password, '-T', hash_file, location])
 
     # Format an email message and send to the interest list
     email = """From: <%s>
@@ -166,11 +181,11 @@ Reason for update: %s
 \n vagrant ssh
         """ % (sender, receiver, location, message, box_out, box_out)
 
-    if args.verbose == logging.DEBUG or test_only:
+    if args.verbose == logging.DEBUG or test_only or not store_only:
         print('Email is:')
         print(email)
 
-    if test_only is False:
+    if not test_only or not store_only:
         try:
             smtpObj = smtplib.SMTP('mail.cisco.com')
             smtpObj.sendmail(sender, receiver, email)
