@@ -37,9 +37,22 @@ from iosxr_iso2vbox import run, set_logging
 import argparse
 from argparse import RawDescriptionHelpFormatter
 import logging
+import hashlib
 
 logger = logging.getLogger(__name__)
 set_logging()
+
+
+def generate_hash(file):
+    global hash_file
+    # SHA256 the box file and store in same location
+    sha256_hash = hashlib.sha256(open(file, 'rb').read()).hexdigest()
+    logger.debug('SHA256: %s' % sha256_hash)
+    hash_file = os.path.splitext(file)[0] + '.sha256.txt'
+    f = open(hash_file, 'w')
+    f.write(sha256_hash)
+    f.close()
+    logger.debug('Hash file is %s' % hash_file)
 
 
 def main(argv):
@@ -98,7 +111,6 @@ def main(argv):
     parser.add_argument('-v', '--verbose',
                         action='store_const', const=logging.DEBUG,
                         default=logging.INFO, help='turn on verbose messages')
-
     parser.add_argument('-t', '--test_only', action='store_true',
                         help='test only, do not store the box or send an email')
 
@@ -133,6 +145,7 @@ def main(argv):
     Copy the box to artifactory. This will most likely change to Atlas, or maybe both.
     The code below shows how to make two copies, one is the latest and one has a date on it.
     '''
+
     # Find the appopriate LOCATION
     if artifactory_release is True:
         location = os.environ.get('ARTIFACTORY_LOCATION_RELEASE')
@@ -145,12 +158,18 @@ def main(argv):
                  "E.g.: export 'ARTIFACTORY_LOCATION_RELEASE=http://location'")
 
     box_out = os.path.join(location, boxname)
+    generate_hash(input_box)
+    hash_out = os.path.join(location, os.path.basename(hash_file))
 
     if test_only is True:
         logger.debug('Test only: copying %s to %s' % (input_box, box_out))
+        logger.debug('Test only: copying %s to %s' % (hash_file, hash_out))
     else:
-        logger.debug('Copying %s to %s' % (box_out, box_out))
+        # Copy to artifactory
+        logger.debug('Copying %s to %s' % (input_box, box_out))
         run(['curl', '-X', 'PUT', '-u', artifactory_username + ':' + artifactory_password, '-T', input_box, box_out, '--progress-bar'])
+        logger.debug('Copying %s to %s' % (hash_file, hash_out))
+        run(['curl', '-X', 'PUT', '-u', artifactory_username + ':' + artifactory_password, '-T', hash_file, hash_out])
 
     # Format an email message and send to the interest list
     email = """From: <%s>
@@ -159,12 +178,13 @@ Subject: A new IOS XRv (64-bit) vagrant box has been posted to artifactory %s
 
 Reason for update: %s
 \nVagrant Box: %s
+\nHash File  : %s
 \nTo use:
 \n vagrant init 'IOS XRv'
 \n vagrant box add --name 'IOS XRv' %s --force
 \n vagrant up
 \n vagrant ssh
-        """ % (sender, receiver, location, message, box_out, box_out)
+        """ % (sender, receiver, location, message, box_out, hash_out, box_out)
 
     if args.verbose == logging.DEBUG or test_only:
         print('Email is:')
