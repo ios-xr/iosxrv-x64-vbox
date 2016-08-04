@@ -108,6 +108,8 @@ def main(argv):
                         help='Optionally specify a reason for uploading this box')
     parser.add_argument('-r', '--release', action='store_true',
                         help="upload to '$ARTIFACTORY_LOCATION_RELEASE' rather than '$ARTIFACTORY_LOCATION_SNAPSHOT'.")
+    parser.add_argument('-s', '--sub_dir', dest='subdir', required=True,
+                        help="subdirectory to upload to, e.g '6.1.1', 'stable'")
     parser.add_argument('-v', '--verbose',
                         action='store_const', const=logging.DEBUG,
                         default=logging.INFO, help='turn on verbose messages')
@@ -123,6 +125,7 @@ def main(argv):
     message = args.message
     artifactory_release = args.release
     test_only = args.test_only
+    subdir = args.subdir
 
     if not input_box:
         sys.exit('No input box detected, use -b to specify a box')
@@ -140,6 +143,7 @@ def main(argv):
     logger.debug("Receiver is:  '%s'" % receiver)
     logger.debug("Release is:   '%s'" % artifactory_release)
     logger.debug("Test Only is: '%s'" % test_only)
+    logger.debug("Sub dir is:   '%s'" % subdir)
 
     '''
     Copy the box to artifactory. This will most likely change to Atlas, or maybe both.
@@ -157,9 +161,9 @@ def main(argv):
                  "E.g.: export 'ARTIFACTORY_LOCATION_SNAPSHOT=http://location', or: \n"
                  "E.g.: export 'ARTIFACTORY_LOCATION_RELEASE=http://location'")
 
-    box_out = os.path.join(location, boxname)
+    box_out = os.path.join(location, subdir, boxname)
     generate_hash(input_box)
-    hash_out = os.path.join(location, os.path.basename(hash_file))
+    hash_out = os.path.join(location, subdir, os.path.basename(hash_file))
 
     if test_only is True:
         logger.debug('Test only: copying %s to %s' % (input_box, box_out))
