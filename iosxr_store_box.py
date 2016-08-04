@@ -48,7 +48,7 @@ def generate_hash(file):
     # SHA256 the box file and store in same location
     sha256_hash = hashlib.sha256(open(file, 'rb').read()).hexdigest()
     logger.debug('SHA256: %s' % sha256_hash)
-    hash_file = os.path.splitext(file)[0] + '.sha256.txt'
+    hash_file = os.path.splitext(file)[0] + '.box.sha256.txt'
     f = open(hash_file, 'w')
     f.write(sha256_hash)
     f.close()

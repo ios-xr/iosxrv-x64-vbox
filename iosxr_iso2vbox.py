@@ -352,9 +352,7 @@ def configure_xr(argv):
 
 def main(argv):
     input_iso = ''
-    copy_to_artifactory = False
     create_ova = False
-    artifactory_reason = ''
 
     parser = argparse.ArgumentParser(
         formatter_class=RawDescriptionHelpFormatter,
@@ -368,9 +366,6 @@ def main(argv):
         "box build with ova export, verbose and upload to artifactory: iosxr-xrv64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso -o -v -a 'New Image'\n")
     parser.add_argument('ISO_FILE',
                         help='local ISO filename or remote URI ISO filename...')
-    parser.add_argument('-a', '--artifactory', nargs='?', metavar="'New box reason'",
-                        const='No reason for update specified',
-                        help='Upload box to Artifactory. You can optionally specify a reason for uploading this box')
     parser.add_argument('-o', '--create_ova', action='store_true',
                         help='additionally use VBoxManage to export an OVA')
     parser.add_argument('-s', '--skip_test', action='store_true',
@@ -394,12 +389,6 @@ def main(argv):
     else:
         # Local image
         input_iso = args.ISO_FILE
-
-    # Handle artifactory
-    if args.artifactory is not None:
-        copy_to_artifactory = True
-        if args.artifactory is not 'No reason for update specified':
-            artifactory_reason = args.artifactory
 
     # Handle create OVA
     create_ova = args.create_ova
@@ -651,16 +640,6 @@ def main(argv):
         os.remove('Vagrantfile')
     except OSError:
         pass
-
-    # Copy to artifactory if -a
-    if copy_to_artifactory is True:
-        logger.info('Copying Vagrant Virtualbox to Artifactory')
-        iosxr_store_box_path = os.path.join(pathname, 'iosxr_store_box.py')
-        if args.verbose == logging.DEBUG:
-            add_verbose = '-v'
-
-        cmd_string = "python %s %s %s -m '%s'" % (iosxr_store_box_path, box_out, add_verbose, artifactory_reason)
-        subprocess.call(cmd_string, shell=True)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
