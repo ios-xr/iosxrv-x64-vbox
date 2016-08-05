@@ -48,7 +48,7 @@ def generate_hash(file):
     # SHA256 the box file and store in same location
     sha256_hash = hashlib.sha256(open(file, 'rb').read()).hexdigest()
     logger.debug('SHA256: %s' % sha256_hash)
-    hash_file = os.path.splitext(file)[0] + '.box.sha256.txt'
+    hash_file = os.path.basename(file) + '.sha256.txt'
     f = open(hash_file, 'w')
     f.write(sha256_hash)
     f.close()
@@ -108,7 +108,7 @@ def main(argv):
                         help='Optionally specify a reason for uploading this box')
     parser.add_argument('-r', '--release', action='store_true',
                         help="upload to '$ARTIFACTORY_LOCATION_RELEASE' rather than '$ARTIFACTORY_LOCATION_SNAPSHOT'.")
-    parser.add_argument('-s', '--sub_dir', dest='subdir', required=True,
+    parser.add_argument('-s', '--subdirectory', dest='subdir', required=True,
                         help="subdirectory to upload to, e.g '6.1.1', 'stable'")
     parser.add_argument('-v', '--verbose',
                         action='store_const', const=logging.DEBUG,

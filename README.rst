@@ -108,12 +108,12 @@ How to use this tool
       [iosxr_iso2vbox.py:624 -                 main() ] Running basic unit tests on Vagrant VirtualBox...
       [iosxr_iso2vbox.py:645 -                 main() ] Passed basic test, box /Users/rwellum/Desktop/Boxes/machines/iosxrv-fullk9-x64/iosxrv-fullk9-x64.box is sane
 
-6. Full help
+6. Full help output
 
    ::
 
       iosxrv-x64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso -h
-      usage: iosxr_iso2vbox.py [-h] [-a ['New box reason']] [-o] [-s] [-d] [-v]
+      usage: iosxr_iso2vbox.py [-h] [-o] [-s] [-d] [-v]
              ISO_FILE
 
       A tool to create an IOS XRv Vagrant VirtualBox box from an IOS XRv ISO.
@@ -127,9 +127,6 @@ How to use this tool
 
       optional arguments:
       -h, --help            show this help message and exit
-      -a ['New box reason'], --artifactory ['New box reason']
-                            Upload box to Artifactory. You can optionally specify
-                            a reason for uploading this box
       -o, --create_ova      additionally use vboxmanage to export an OVA
       -s, --skip_test       skip unit testing
       -d, --debug           will exit with the VM in a running state. Use: socat
@@ -139,7 +136,55 @@ How to use this tool
       E.g.:
       box build with local iso: iosxr-xrv64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso
       box build with remote iso: iosxr-xrv64-vbox/iosxr_iso2vbox.py user@server:/myboxes/iosxrv-fullk9-x64.iso
-      box build with ova export, verbose and upload to artifactory: iosxr-xrv64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso -o -v -a 'New Image'
+      box build with ova export and verbose: iosxr-xrv64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso -o -v
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The iosxr_store.py tool is:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+A tool written to copy a generated box to a repository, with a
+generated message to an alias.
+
+^^^^^^^^^^^^^^^^^^^^^^
+How to use this tool
+^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   rwellum@RWELLUM-M-34DF:[~/Desktop/Boxes]: iosxrv-x64-vbox/iosxr_store_box.py -h
+   usage: iosxr_store_box.py [-h] [-m MESSAGE] [-r] -s SUBDIR [-v] [-t] BOX_FILE
+
+   A tool to upload an image to a maven repo like artifactory using curl, the image typically being a vagrant virtualbox.
+   User can select snapshot or release, the release images get synced to devhub.cisco.com - where they are available to customers.
+   This tool also sends an email out to an email address or an alias to inform them of the new image.
+   It is designed to be called from other tools, like iosxr_ios2vbox.py.
+
+   It will rely on the following environment variables to work:
+     ARTIFACTORY_USERNAME
+     ARTIFACTORY_PASSWORD
+     ARTIFACTORY_LOCATION_SNAPSHOT
+     ARTIFACTORY_LOCATION_RELEASE
+     ARTIFACTORY_SENDER
+     ARTIFACTORY_RECEIVER
+
+   positional arguments:
+     BOX_FILE              BOX filename
+
+     optional arguments:
+       -h, --help            show this help message and exit
+       -m MESSAGE, --message MESSAGE
+                             Optionally specify a reason for uploading this box
+       -r, --release         upload to '$ARTIFACTORY_LOCATION_RELEASE' rather than
+                             '$ARTIFACTORY_LOCATION_SNAPSHOT'.
+       -s SUBDIR, --subdirectory SUBDIR
+                             subdirectory to upload to, e.g '6.1.1', 'stable'
+       -v, --verbose         turn on verbose messages
+       -t, --test_only       test only, do not store the box or send an email
+
+       E.g.:
+       iosxrv-x64-vbox/iosxr_store_box.py iosxrv-fullk9-x64.box --release --verbose --message 'A new box because...'
+       iosxrv-x64-vbox/iosxr_store_box.py iosxrv-fullk9-x64.box --release, --message 'A new box because...'
+       iosxrv-x64-vbox/iosxr_store_box.py iosxrv-fullk9-x64.box -r -v -m
+       'Latest box for release.'
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 How to install Vagrant, VirtualBox and socat
