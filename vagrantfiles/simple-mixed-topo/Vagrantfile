@@ -10,9 +10,9 @@ Vagrant.configure(2) do |config|
       # Forward a port for grpc server access from the host, for eg. port 57777 configured on XR, forwarded to 57778 on host
       node.vm.network :forwarded_port, guest: 57777, host: 57778, id: "grpc", auto_correct: true
 
-      # gig0/0/0/0 connected to link2, gig00/0/1 connected to link1, gig0/0/0/2 connected to link3, auto-config not supported.
-      node.vm.network :private_network, virtualbox__intnet: "link2", auto_config: false
+      # gig0/0/0/0 connected to link1, gig00/0/1 connected to link2, gig0/0/0/2 connected to link3, auto-config not supported.
       node.vm.network :private_network, virtualbox__intnet: "link1", auto_config: false
+      node.vm.network :private_network, virtualbox__intnet: "link2", auto_config: false
       node.vm.network :private_network, virtualbox__intnet: "link3", auto_config: false
 
     end
@@ -20,9 +20,9 @@ Vagrant.configure(2) do |config|
     config.vm.define "rtr2" do |node|
       node.vm.box =  "IOS XRv"
 
-      # gig0/0/0/0 connected to link1, gig0/0/0/1 connected to link3, auto-config not supported
+      # gig0/0/0/0 connected to link1, gig0/0/0/1 connected to link2, auto-config not supported
       node.vm.network :private_network, virtualbox__intnet: "link1", auto_config: false
-      node.vm.network :private_network, virtualbox__intnet: "link3", auto_config: false
+      node.vm.network :private_network, virtualbox__intnet: "link2", auto_config: false
 
       node.vm.provider "virtualbox" do |v|
         # Optional, forward the XR console serial port a TCP port on the host
@@ -32,12 +32,10 @@ Vagrant.configure(2) do |config|
       end
     end
 
-
     config.vm.define "devbox" do |node|
       node.vm.box =  "ubuntu/trusty64"
 
       # eth1 connected to link2, auto_config is supported for an ubuntu instance
       node.vm.network :private_network, virtualbox__intnet: "link2", ip: "11.1.1.2"
-
     end
 end
