@@ -150,7 +150,7 @@ How to use this tool
 
 ::
 
-   rwellum@RWELLUM-M-34DF:[~/Desktop/Boxes]: iosxrv-x64-vbox/iosxr_store_box.py -h
+   iosxrv-x64-vbox/iosxr_store_box.py -h
    usage: iosxr_store_box.py [-h] [-m MESSAGE] [-r] -s SUBDIR [-v] [-t] BOX_FILE
 
    A tool to upload an image to a maven repo like artifactory using curl, the image typically being a vagrant virtualbox.
