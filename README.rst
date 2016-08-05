@@ -112,7 +112,7 @@ How to use this tool
 
    ::
 
-      iosxrv-x64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso -h
+      $ iosxrv-x64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso -h
       usage: iosxr_iso2vbox.py [-h] [-o] [-s] [-d] [-v]
              ISO_FILE
 
@@ -150,7 +150,7 @@ How to use this tool
 
 ::
 
-   iosxrv-x64-vbox/iosxr_store_box.py -h
+   $ iosxrv-x64-vbox/iosxr_store_box.py -h
    usage: iosxr_store_box.py [-h] [-m MESSAGE] [-r] -s SUBDIR [-v] [-t] BOX_FILE
 
    A tool to upload an image to a maven repo like artifactory using curl, the image typically being a vagrant virtualbox.
