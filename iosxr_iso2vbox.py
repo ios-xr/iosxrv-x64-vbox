@@ -96,6 +96,7 @@ def run(cmd, hide_error=False, cont_on_error=False):
 
     output = subprocess.Popen(cmd,
                               stdout=subprocess.PIPE,
+                              stdin=subprocess.PIPE,
                               stderr=subprocess.PIPE)
     tup_output = output.communicate()
 
@@ -535,6 +536,17 @@ def main(argv):
 
     logger.debug('Add DVD drive')
     run(['VBoxManage', 'storageattach', vmname, '--storagectl', 'IDE_Controller', '--port', '1', '--device', '0', '--type', 'dvddrive', '--medium', input_iso])
+
+    # Add another DVD drive to carry the Profile for sunstone lite
+    # Needs brew install dvdrtools
+    # TODO: Make this optional or dependent on recognizing a sunstone lite ISO
+    logger.debug('Add another drive for sunstone_lite profile')
+    run(['mkdir', '-p', './Profile'])
+    # TODO: Move this to a 'here' document
+    run(['echo', 'OPT_PLATFORM_MEMORY_MB=4096', '>', './Profile/profile'])
+    run(['echo', 'OPT_PLATFORM_SMP="-smp cores=1,threads=1,sockets=1"', '>>', './Profile/profile'])
+    run(['mkisofs', '-output', './profile.iso', '-l', '-V', 'config-1', '--relaxed-filenames', '--iso-level', '2', './Profile'])
+    run(['VBoxManage', 'storageattach', vmname, '--storagectl', 'IDE_Controller', '--port', '1', '--device', '1', '--type', 'dvddrive', '--medium', './profile.iso'])
 
     # Change boot order to hd then dvd
     logger.debug('Boot order disk first')
