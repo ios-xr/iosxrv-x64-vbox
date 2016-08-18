@@ -108,10 +108,10 @@ def run(cmd, hide_error=False, cont_on_error=False):
     logger.debug(tup_output[0])
 
     if not hide_error and 0 != output.returncode:
-        print('Error output for: ' + s_cmd)
-        print(tup_output[1])
+        logger.error('Error output for: ' + s_cmd)
+        logger.error(tup_output[1])
         if not cont_on_error:
-            sys.exit(0)
+            sys.exit('Quiting due to run command error')
         else:
             logger.debug('Continuing despite error cont_on_error=%d', cont_on_error)
 
