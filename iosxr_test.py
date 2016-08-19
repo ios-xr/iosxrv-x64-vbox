@@ -247,12 +247,9 @@ def main():
     args = parser.parse_args()
     verbose = args.verbose
 
-    if args.BOX_FILE == 'check_string_for_empty':
-        sys.exit('No argument given, Usage: iosxr_test.py <boxname>')
-    else:
-        input_box = args.BOX_FILE
-        if not os.path.exists(input_box):
-            sys.exit(input_box, 'does not exist')
+    input_box = args.BOX_FILE
+    if not os.path.exists(input_box):
+        sys.exit(input_box, 'does not exist')
 
     logger.setLevel(level=args.verbose)
 

@@ -111,7 +111,7 @@ def run(cmd, hide_error=False, cont_on_error=False):
         logger.error('Error output for: ' + s_cmd)
         logger.error(tup_output[1])
         if not cont_on_error:
-            sys.exit('Quiting due to run command error')
+            sys.exit('Quitting due to run command error')
         else:
             logger.debug('Continuing despite error cont_on_error=%d', cont_on_error)
 
@@ -633,7 +633,8 @@ def main(argv):
     logger.info('Note that both the XR Console and the XR linux shell username and password is vagrant/vagrant')
 
     # Clean up default test VM
-    run(['vagrant', 'destroy', '--force'], cont_on_error=True)
+    if not args.skip_test:
+        run(['vagrant', 'destroy', '--force'], cont_on_error=True)
 
     # Clean up Vagrantfile
     try:
