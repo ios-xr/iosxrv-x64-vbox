@@ -41,6 +41,9 @@ hostname = "localhost"
 username = "vagrant"
 password = "vagrant"
 
+iosxr_port = 0
+linux_port = 0
+
 
 def check_result(result, success_message):
     '''
@@ -63,34 +66,44 @@ def check_result(result, success_message):
 
 def bringup_vagrant():
     '''
-    Bring up a vagrant box.
-
-    Clean up ssh keys from the generation of the virtualbox.
-
-    Use pxssh to fascilitate the ssh process.
+    Bring up a vagrant box and test the ssh connection.
     '''
+
     # Clean up Vagrantfile
     try:
         os.remove('Vagrantfile')
     except OSError:
         pass
 
+    global iosxr_port
+    global linux_port
+
+    # Use vagrant to init, add and bring up the inputted Vagrant VirtualBox
     logger.debug("Bringing up '%s'..." % input_box)
 
-    run(['vagrant', 'init', 'XRv64-test'])  # Single node for now, in future could bring up two nodes and do more testing
-    run(['vagrant', 'box', 'add', '--name', 'XRv64-test', input_box, '--force'])
-    output = run(['vagrant', 'up'])
-    print(output)
+    logger.debug('vagrant init XRv64-test')
+    output = run(['vagrant', 'init', 'XRv64-test'])
+    logger.debug(output)
 
-    # Find the correct port to connect to
-    port = subprocess.check_output('vagrant port --guest 57722', shell=True)
-    logger.debug('Connecting to port %s' % port)
+    logger.debug('vagrant box add --name XRv64-test %s --force' % input_box)
+    output = run(['vagrant', 'box', 'add', '--name', 'XRv64-test', input_box, '--force'])
+    logger.debug(output)
+
+    logger.debug('vagrant up')
+    output = run(['vagrant', 'up'])
+    logger.debug(output)
+
+    # Find the ports to connect to linux and xr
+    linux_port = subprocess.check_output('vagrant port --guest 57722', shell=True)
+    iosxr_port = subprocess.check_output('vagrant port --guest 22', shell=True)
+
+    logger.debug('Connecting to port %s' % linux_port)
 
     try:
         s = pxssh.pxssh(options={
             "StrictHostKeyChecking": "no",
             "UserKnownHostsFile": "/dev/null"})
-        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, port)
+        s.login(hostname, username, password, terminal_type, linux_prompt, login_timeout, linux_port)
         logger.debug('Sucessfully brought up VM and logged in')
         s.logout()
     except pxssh.ExceptionPxssh, e:
@@ -106,7 +119,6 @@ def test_linux():
     Verify resolv.conf is populated.
     '''
     logger.debug('Testing XR Linux...')
-    linux_port = subprocess.check_output('vagrant port --guest 57722', shell=True)
     logger.debug('Connecting to port %s' % linux_port)
 
     try:
@@ -168,15 +180,14 @@ def test_xr():
     Verify logging into IOS XR Console directly.
     Verify show version.
     Verify show run.
+    Verify grpc is configured if a full image.
     '''
-    global iosxr_port
 
     if 'k9' not in input_box:
         logger.warning('Not a crypto image, will not test XR as no SSH to access.')
         return True
 
     logger.debug('Testing XR Console...')
-    iosxr_port = subprocess.check_output('vagrant port --guest 22', shell=True)
     logger.debug('Connecting to port %s' % iosxr_port)
 
     try:
@@ -229,8 +240,9 @@ def main():
     global input_box
     global verbose
 
-    parser = argparse.ArgumentParser(description='Pass in a vagrant box')
-    parser.add_argument("a", nargs='?', default="check_string_for_empty")
+    parser = argparse.ArgumentParser(description='Run basic unit-test on a Vagrant VirtualBox')
+    parser.add_argument('BOX_FILE',
+                        help='local Vagrant VirtualBox filename')
     parser.add_argument('-v', '--verbose',
                         action='store_const', const=logging.DEBUG,
                         default=logging.INFO, help='turn on verbose messages')
@@ -238,12 +250,9 @@ def main():
     args = parser.parse_args()
     verbose = args.verbose
 
-    if args.a == 'check_string_for_empty':
-        sys.exit('No argument given, Usage: iosxr_test.py <boxname>')
-    else:
-        input_box = args.a
-        if not os.path.exists(input_box):
-            sys.exit(input_box, 'does not exist')
+    input_box = args.BOX_FILE
+    if not os.path.exists(input_box):
+        sys.exit(input_box, 'does not exist')
 
     logger.setLevel(level=args.verbose)
 

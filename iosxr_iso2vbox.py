@@ -108,10 +108,10 @@ def run(cmd, hide_error=False, cont_on_error=False):
     logger.debug(tup_output[0])
 
     if not hide_error and 0 != output.returncode:
-        print('Error output for: ' + s_cmd)
-        print(tup_output[1])
+        logger.error('Error output for: ' + s_cmd)
+        logger.error(tup_output[1])
         if not cont_on_error:
-            sys.exit(0)
+            sys.exit('Quitting due to run command error')
         else:
             logger.debug('Continuing despite error cont_on_error=%d', cont_on_error)
 
@@ -365,7 +365,7 @@ def main(argv):
         "box build with remote iso: iosxr-xrv64-vbox/iosxr_iso2vbox.py user@server:/myboxes/iosxrv-fullk9-x64.iso\n" +
         "box build with ova export, verbose and upload to artifactory: iosxr-xrv64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso -o -v -a 'New Image'\n")
     parser.add_argument('ISO_FILE',
-                        help='local ISO filename or remote URI ISO filename...')
+                        help='local ISO filename or remote URI ISO filename')
     parser.add_argument('-o', '--create_ova', action='store_true',
                         help='additionally use VBoxManage to export an OVA')
     parser.add_argument('-s', '--skip_test', action='store_true',
@@ -633,7 +633,8 @@ def main(argv):
     logger.info('Note that both the XR Console and the XR linux shell username and password is vagrant/vagrant')
 
     # Clean up default test VM
-    run(['vagrant', 'destroy', '--force'], cont_on_error=True)
+    if not args.skip_test:
+        run(['vagrant', 'destroy', '--force'], cont_on_error=True)
 
     # Clean up Vagrantfile
     try:
