@@ -365,7 +365,7 @@ def main(argv):
         "box build with remote iso: iosxr-xrv64-vbox/iosxr_iso2vbox.py user@server:/myboxes/iosxrv-fullk9-x64.iso\n" +
         "box build with ova export, verbose and upload to artifactory: iosxr-xrv64-vbox/iosxr_iso2vbox.py iosxrv-fullk9-x64.iso -o -v -a 'New Image'\n")
     parser.add_argument('ISO_FILE',
-                        help='local ISO filename or remote URI ISO filename...')
+                        help='local ISO filename or remote URI ISO filename')
     parser.add_argument('-o', '--create_ova', action='store_true',
                         help='additionally use VBoxManage to export an OVA')
     parser.add_argument('-s', '--skip_test', action='store_true',

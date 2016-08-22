@@ -242,7 +242,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='Run basic unit-test on a Vagrant VirtualBox')
     parser.add_argument('BOX_FILE',
-                        help='local Vagrant VirtualBox filename...')
+                        help='local Vagrant VirtualBox filename')
     parser.add_argument('-v', '--verbose',
                         action='store_const', const=logging.DEBUG,
                         default=logging.INFO, help='turn on verbose messages')
