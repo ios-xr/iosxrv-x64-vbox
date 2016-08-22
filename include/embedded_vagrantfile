@@ -9,11 +9,6 @@
 # backwards compatibility). Please don't change it unless you know what
 # you're doing.
 Vagrant.configure(2) do |config|
-  puts 'Welcome to the IOS XRv (64-bit) Vagrant VirtualBox.'
-  puts 'This instance will take several minutes to come up,'
-  puts 'while IOS XR is booting.'
-  puts 'Please be patient and wait until Vagrant is finished.'
-
   config.vm.synced_folder '.', '/vagrant', disabled: true
 
   # Give IOS XRv (64-bit) 400 seconds to come up

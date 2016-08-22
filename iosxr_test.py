@@ -81,12 +81,15 @@ def bringup_vagrant():
     # Use vagrant to init, add and bring up the inputted Vagrant VirtualBox
     logger.debug("Bringing up '%s'..." % input_box)
 
+    logger.debug('vagrant init XRv64-test')
     output = run(['vagrant', 'init', 'XRv64-test'])
     logger.debug(output)
 
+    logger.debug('vagrant box add --name XRv64-test %s --force' % input_box)
     output = run(['vagrant', 'box', 'add', '--name', 'XRv64-test', input_box, '--force'])
     logger.debug(output)
 
+    logger.debug('vagrant up')
     output = run(['vagrant', 'up'])
     logger.debug(output)
 
