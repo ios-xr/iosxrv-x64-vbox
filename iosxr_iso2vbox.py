@@ -178,9 +178,11 @@ def configure_xr(argv):
 
         for attempt in range(total):
             try:
+                logger.debug("Looking for '%s' in output of '%s'" % (pattern, command))
                 child.sendline(command)
                 child.expect(pattern, 5)
                 found_match = True
+                logger.debug("Found '%s' in '%s'" % (pattern, command))
                 break
             except pexpect.TIMEOUT:
                 logger.debug("Iteration '%s' out of '%s'", attempt, total)
@@ -216,6 +218,10 @@ def configure_xr(argv):
         child.expect(prompt)
 
         # ZTP causes some startup issues so disable it during box creation
+        child.sendline("run mkdir -p /disk0:/ztp/state")
+        child.expect(prompt)
+        child.sendline("run touch /disk0:/ztp/state/state_is_complete")
+        child.expect(prompt)
         child.sendline("ztp terminate noprompt")
         child.expect(prompt)
 
