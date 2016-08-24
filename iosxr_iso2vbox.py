@@ -178,17 +178,17 @@ def configure_xr(argv):
 
         for attempt in range(total):
             try:
-                logger.debug("Looking for '%s' in output of '%s'\n" % (pattern, command))
+                logger.debug("Looking for '%s' in output of '%s'" % (pattern, command))
                 child.sendline(command)
                 child.expect(pattern, 5)
                 found_match = True
-                logger.debug("Found '%s' in '%s'\n" % (pattern, command))
+                logger.debug("Found '%s' in '%s'" % (pattern, command))
                 break
             except pexpect.TIMEOUT:
                 logger.debug("Iteration '%s' out of '%s'", attempt, total)
 
         if not found_match:
-            raise Exception("No '%s' in '%s'\n" % (pattern, command))
+            raise Exception("No '%s' in '%s'" % (pattern, command))
 
     try:
         child = pexpect.spawn("socat TCP:%s:%s -,raw,echo=0,escape=0x1d" % (localhost, CONSOLE_PORT))
