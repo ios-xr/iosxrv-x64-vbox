@@ -465,8 +465,10 @@ def main(argv):
             continue
 
     # Configure IOS XR and IOS XR Linux
-    # do print steps for logging set to INFO and DEBUG
-    configure_xe(args.verbose < logging.WARNING)
+    # do print steps for logging set to DEBUG
+    # default is INFO
+    print(args.verbose)
+    configure_xe(args.verbose < logging.INFO)
 
     # Good place to stop and take a look if --debug was entered
     if args.debug:
