@@ -1,0 +1,62 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Embedded Vagranfile that will be included in the base box.
+# Other Vagrantfiles must be compatible and will be additive
+
+# All Vagrant configuration is done below. The "2" in Vagrant.configure
+# configures the configuration version (we support older styles for
+# backwards compatibility). Please don't change it unless you know what
+# you're doing.
+Vagrant.configure(2) do |config|
+  config.vm.synced_folder '.', '/vagrant', disabled: true
+
+  # Give IOS XE 400 seconds to come up
+  config.vm.boot_timeout = 400
+
+  # Port 830 is XE NETCONF
+  config.vm.network :forwarded_port, guest: 830, host: 2223, id: 'netconf', auto_correct: true
+  # Port 80 is XE RESTCONF
+  config.vm.network :forwarded_port, guest: 80, host: 2224, id: 'restconf', auto_correct: true
+  # Port 443 is XE RESTCONF / SSL
+  config.vm.network :forwarded_port, guest: 443, host: 2225, id: 'restconf-ssl', auto_correct: true
+  config.ssh.forward_agent = true
+  config.ssh.guest_port = 22
+  config.ssh.insert_key = false
+  config.vbguest.auto_update = false  
+  config.vm.guest = :other
+
+  # Avoid serial port conflicts
+  config.vm.provider 'virtualbox' do |v|
+    # Optional, forward the XE console serial port a TCP port on the host
+    v.customize ['modifyvm', :id, '--uart1', '0x3F8', 4, '--uartmode1', 'disconnected']
+    # Optional, forward the XE auxiliary serial  port a TCP port on the host
+    v.customize ['modifyvm', :id, '--uart2', '0x2F8', 3, '--uartmode2', 'disconnected']
+  end
+
+  config.vm.post_up_message = "
+    Welcome to the IOS XE VirtualBox.
+    To connect to the XE via ssh, use: 'vagrant ssh'.
+    To ssh to XE's NETCONF or RESTCONF agent, use: 
+    'vagrant port' (vagrant version > 1.8)
+    to determine the port that maps to the guestport,
+
+    The password for the vagrant user is vagrant
+
+    IMPORTANT:  READ CAREFULLY
+    The Software is subject to and governed by the terms and conditions
+    of the End User License Agreement and the Supplemental End User
+    License Agreement accompanying the product, made available at the
+    time of your order, or posted on the Cisco website at
+    www.cisco.com/go/terms (collectively, the 'Agreement').
+    As set forth more fully in the Agreement, use of the Software is
+    strictly limited to internal use in a non-production environment
+    solely for demonstration and evaluation purposes. Downloading,
+    installing, or using the Software constitutes acceptance of the
+    Agreement, and you are binding yourself and the business entity
+    that you represent to the Agreement. If you do not agree to all
+    of the terms of the Agreement, then Cisco is unwilling to license
+    the Software to you and (a) you may not download, install or use the
+    Software, and (b) you may return the Software as more fully set forth
+    in the Agreement."
+end
