@@ -3,7 +3,7 @@
 Author: Rich Wellum (richwellum@gmail.com)
 Adapted for use with IOS XE by Ralph Schmieder (rschmied@cisco.com)
 
-This is a tool to take an IOS XR Virtual Machine ISO image and convert it into
+This is a tool to take an IOS XE Virtual Machine ISO image and convert it into
 a Vagrant Virtualbox fully networked and ready for application development.
 
 tested with csr1000v-universalk9.16.03.01.iso (Denali)
@@ -69,7 +69,7 @@ import logging
 import pexpect
 import textwrap
 
-# Telnet ports used to access IOS XR via socat
+# Telnet ports used to access IOS XE via socat
 CONSOLE_PORT = 65000
 AUX_PORT = 65001
 
@@ -464,7 +464,7 @@ def main(argv):
             time.sleep(5)
             continue
 
-    # Configure IOS XR and IOS XR Linux
+    # Configure IOS XE
     # do print steps for logging set to DEBUG
     # default is INFO
     configure_xe(args.verbose < logging.INFO)
@@ -516,9 +516,12 @@ def main(argv):
     # Clean up VM used to generate box
     cleanup_vmname(vmname, vbox)
 
-    logger.info("vagrant init iosxe")
-    logger.info("vagrant box add --name iosxe %s --force", box_out)
-    logger.info('vagrant up')
+    logger.info("Add box to system:")
+    logger.info("   vagrant box add --name iosxe %s --force", box_out)
+    logger.info("Initialize environment:")
+    logger.info("   vagrant init iosxe")
+    logger.info("Bring up box:")
+    logger.info("   vagrant up")
 
     logger.info(
         'Note that both the XE Console and NETCONF/RESTCONF username and password is vagrant/vagrant')
