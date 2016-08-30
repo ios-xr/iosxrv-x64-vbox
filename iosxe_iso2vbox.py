@@ -465,7 +465,8 @@ def main(argv):
             continue
 
     # Configure IOS XR and IOS XR Linux
-    configure_xe(args.verbose > logging.INFO)
+    # do print steps for logging set to INFO and DEBUG
+    configure_xe(args.verbose < logging.WARNING)
 
     # Good place to stop and take a look if --debug was entered
     if args.debug:
@@ -520,16 +521,6 @@ def main(argv):
 
     logger.info(
         'Note that both the XE Console and NETCONF/RESTCONF username and password is vagrant/vagrant')
-
-    # Clean up default test VM
-    if not args.skip_test:
-        run(['vagrant', 'destroy', '--force'], cont_on_error=True)
-
-    # Clean up Vagrantfile
-    try:
-        os.remove('Vagrantfile')
-    except OSError:
-        pass
 
 if __name__ == '__main__':
     main(sys.argv[1:])
