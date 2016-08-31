@@ -157,7 +157,7 @@ def start_process(args):
     time.sleep(2)
 
 
-def configure_xe(verbose=False):
+def configure_xe(verbose=False, wait=True):
     '''
     Bring up XE and do some initial config.
     Using socat to do the connection as telnet has an
@@ -166,12 +166,15 @@ def configure_xe(verbose=False):
     logger.info('Logging into Vagrant Virtualbox and configuring IOS XE')
 
     localhost = 'localhost'
-    prompt = r'\w(\(config\))?[#>]'
+    
 
-    def send_line(line):
-        child.sendline("\r\n")
-        child.expect(prompt)
+    PROMPT = r'[\w-]+(\([\w-]+\))?[#>]'
+    CRLF = "\r\n"
+
+    def send_line(line=CRLF):
+        #child.sendline(CRLF)
         child.sendline(line)
+        child.expect(PROMPT)
 
     try:
         child = pexpect.spawn(
@@ -179,15 +182,17 @@ def configure_xe(verbose=False):
 
         if verbose:
             child.logfile = sys.stdout
+        else:
+            child.logfile = open("tmp.log", "w")
 
         child.timeout = 600  # Long time for full configuration, waiting for ip address etc
 
         # wait for indication that boot has gone through
-        child.expect(r'CRYPTO-6-GDOI_ON_OFF: GDOI is OFF', child.timeout)
-        child.sendline("\r\n")  # Send enter
+        if (wait):
+            child.expect(r'CRYPTO-6-GDOI_ON_OFF: GDOI is OFF', child.timeout)
+        send_line()
         time.sleep(5)
-        child.sendline("\r\n")  # Send enter
-        child.expect(prompt)
+        send_line()
         send_line("term width 300")
 
         # enable plus config mode
@@ -197,17 +202,22 @@ def configure_xe(verbose=False):
         # no TFTP config
         send_line("no logging console")
         time.sleep(5)
-        send_line("\r\n")
         send_line("no service config")
+
+        # netconf
+        send_line("netconf-yang")
+        send_line("netconf ssh")
 
         # hostname / domain-name
         send_line("hostname csr1kv")
         send_line("ip domain-name dna.lab")
 
         # key generation
-        send_line("crypto key generate rsa modulus 2048")
+        #send_line("crypto key generate rsa modulus 2048")
+        #time.sleep(5)
 
         # passwords and username
+        send_line()
         send_line("username vagrant priv 15 password vagrant")
         send_line("enable password cisco")
         send_line("enable secret cisco")
@@ -216,16 +226,10 @@ def configure_xe(verbose=False):
         send_line("line vty 0 4")
         send_line("login local")
 
-        # netconf
-        send_line("netconf ssh")
-        send_line("netconf-yang")
-
-        # restconf
-        send_line("ip http server")
-        send_line("ip http secure-server")
-        send_line("restconf")
-
         # ssh vagrant insecure key
+        #conf-ssh-pubkey
+        #conf-ssh-pubkey-user
+        #conf-ssh-pubkey-data
         send_line("ip ssh pubkey-chain")
         send_line("username vagrant")
         send_line("key-string")
@@ -234,10 +238,15 @@ def configure_xe(verbose=False):
         send_line("PXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ==")
         send_line("exit")
 
+        # restconf
+        send_line("ip http server")
+        send_line("ip http secure-server")
+        send_line("restconf")
+
         # done and save
         send_line("end")
         send_line("copy run start")
-        send_line("\r\n")
+        send_line()
 
         # just to be sure
         logger.debug('Waiting 10 seconds...')
@@ -310,7 +319,8 @@ def main(argv):
 
     logger.debug('Input ISO is %s', input_iso)
 
-    ram = 4096
+    #ram = 4096
+    ram = 3072
     logger.info('Creating Vagrant VirtualBox')
 
     version = run(['VBoxManage', '-v'])
@@ -375,15 +385,20 @@ def main(argv):
     #run(['VBoxManage', 'modifyvm', vmname, '--cpus', '2'])
 
     # Setup networking - including ssh
+    # it seems to be totally irrelevant how many interfaces are provisioned into
+    # the inital box as the vagrant box create reduces the amount to 1 anyway.
+    # if one wants more interfaces for individiual boxes then those have to be
+    # added either in the vagrant file template or in the actual file inside the
+    # box (after vagrant init).
     logger.debug('Create NICs')
     run(['VBoxManage', 'modifyvm', vmname, '--nic1', 'nat', '--nictype1', '82540EM'])
     run(['VBoxManage', 'modifyvm', vmname, '--cableconnected1', 'on'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic2', 'nat', '--nictype2', '82540EM'])
-    run(['VBoxManage', 'modifyvm', vmname, '--cableconnected2', 'off'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic3', 'nat', '--nictype3', '82540EM'])
-    run(['VBoxManage', 'modifyvm', vmname, '--cableconnected3', 'off'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic4', 'nat', '--nictype4', '82540EM'])
-    run(['VBoxManage', 'modifyvm', vmname, '--cableconnected4', 'off'])
+    #run(['VBoxManage', 'modifyvm', vmname, '--nic2', 'nat', '--nictype2', '82540EM'])
+    #run(['VBoxManage', 'modifyvm', vmname, '--cableconnected2', 'off'])
+    #run(['VBoxManage', 'modifyvm', vmname, '--nic3', 'nat', '--nictype3', '82540EM'])
+    #run(['VBoxManage', 'modifyvm', vmname, '--cableconnected3', 'off'])
+    #run(['VBoxManage', 'modifyvm', vmname, '--nic4', 'nat', '--nictype4', '82540EM'])
+    #run(['VBoxManage', 'modifyvm', vmname, '--cableconnected4', 'off'])
     #run(['VBoxManage', 'modifyvm', vmname, '--nic5', 'nat', '--nictype5', 'virtio'])
     #run(['VBoxManage', 'modifyvm', vmname, '--nic6', 'nat', '--nictype6', 'virtio'])
     #run(['VBoxManage', 'modifyvm', vmname, '--nic7', 'nat', '--nictype7', 'virtio'])
@@ -426,7 +441,7 @@ def main(argv):
 
     # Setup storage
     logger.debug('Create a HDD')
-    run(['VBoxManage', 'createhd', '--filename', vdi, '--size', '16384'])
+    run(['VBoxManage', 'createhd', '--filename', vdi, '--size', '8192'])
 
     logger.debug('Add IDE Controller')
     run(['VBoxManage', 'storagectl', vmname,
@@ -525,6 +540,12 @@ def main(argv):
 
     logger.info(
         'Note that both the XE Console and NETCONF/RESTCONF username and password is vagrant/vagrant')
+
+def debug():
+    set_logging()
+    logger.setLevel(level=logging.DEBUG)
+    configure_xe(verbose=True, wait=False)
+    
 
 if __name__ == '__main__':
     main(sys.argv[1:])
