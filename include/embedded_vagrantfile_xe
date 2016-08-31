@@ -23,8 +23,12 @@ Vagrant.configure(2) do |config|
   config.ssh.forward_agent = true
   config.ssh.guest_port = 22
   config.ssh.insert_key = false
-  config.vbguest.auto_update = false  
   config.vm.guest = :other
+
+  # turn off the check if the plugin is installed
+  if Vagrant.has_plugin?("vagrant-vbguest")
+    config.vbguest.auto_update = false  
+  end
 
   # Avoid serial port conflicts
   config.vm.provider 'virtualbox' do |v|
