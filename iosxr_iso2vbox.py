@@ -249,7 +249,7 @@ def configure_xr(argv):
             logger.debug("MGBL package not detected")
 
         # Wait for a management interface to be available
-        xr_cli_wait_for_output('sh run interface | inc MgmtEth', 'interface MgmtEth')
+        xr_cli_wait_for_output('sh run interface', 'interface MgmtEth')
 
         child.sendline("conf t")
         child.expect("ios.config.*#", 10)
@@ -292,7 +292,7 @@ def configure_xr(argv):
         child.expect(prompt)
 
         # Spin waiting for an ip address to be associated with the interface
-        xr_cli_wait_for_output('sh ipv4 int brief | i 10.0.2.15', '10.0.2.15')
+        xr_cli_wait_for_output('sh ipv4 int brief', '10.0.2.15')
 
         # Needed for jenkins if using root password
         child.sendline("bash -c sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config_operns")
@@ -347,7 +347,7 @@ def configure_xr(argv):
             child.expect(prompt)  # Wait for the prompt
 
         # Final check to make sure MGMT stayed up
-        xr_cli_wait_for_output('show ipv4 interface MgmtEth0/RP0/CPU0/0 | i Internet address', '10.0.2.15')
+        xr_cli_wait_for_output('show ipv4 interface MgmtEth0/RP0/CPU0/0', '10.0.2.15')
 
         logger.debug('Waiting 30 seconds...')
         time.sleep(30)
