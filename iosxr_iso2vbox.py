@@ -217,6 +217,10 @@ def configure_xr(argv):
         child.sendline("term width 300")
         child.expect(prompt)
 
+        # Set term len
+        child.sendline("term length 0")
+        child.expect(prompt)
+
         # ZTP causes some startup issues so disable it during box creation
         child.sendline("run mkdir -p /disk0:/ztp/state")
         child.expect(prompt)
