@@ -185,7 +185,7 @@ def configure_xr(argv):
                 logger.debug("Found '%s' in '%s'" % (pattern, command))
                 break
             except pexpect.TIMEOUT:
-                logger.debug("Iteration '%s' out of '%s'", attempt, total)
+                logger.debug("Iteration '%s' out of '%s'", (attempt + 1), total)
 
         if not found_match:
             raise Exception("No '%s' in '%s'" % (pattern, command))
