@@ -415,6 +415,12 @@ def main(argv):
     else:
         sys.exit('%s is neither a mini nor a full image. Abort' % input_iso)
 
+    # Determine if it's a sunstone ISO
+    if 'xrv9k' in input_iso:
+        logger.debug('Found an XRv9k image')
+        xrv9k = True
+        ram = 8192
+
     logger.info('Creating Vagrant VirtualBox')
 
     version = run(['VBoxManage', '-v'])
@@ -474,8 +480,12 @@ def main(argv):
     logger.debug('Add ACPI')
     run(['VBoxManage', 'modifyvm', vmname, '--memory', str(ram), '--acpi', 'on'])
 
-    logger.debug('Add two CPUs')
-    run(['VBoxManage', 'modifyvm', vmname, '--cpus', '2'])
+    if xrv9k:
+        logger.debug('Add one CPU')
+        run(['VBoxManage', 'modifyvm', vmname, '--cpus', '1'])
+    else:
+        logger.debug('Add two CPUs')
+        run(['VBoxManage', 'modifyvm', vmname, '--cpus', '2'])
 
     # Setup networking - including ssh
     logger.debug('Create eight NICs')
@@ -540,13 +550,17 @@ def main(argv):
     # Add another DVD drive to carry the Profile for sunstone lite
     # Needs brew install dvdrtools
     # TODO: Make this optional or dependent on recognizing a sunstone lite ISO
-    logger.debug('Add another drive for sunstone_lite profile')
-    run(['mkdir', '-p', './Profile'])
-    # TODO: Move this to a 'here' document
-    run(['echo', 'OPT_PLATFORM_MEMORY_MB=4096', '>', './Profile/profile'])
-    run(['echo', 'OPT_PLATFORM_SMP="-smp cores=1,threads=1,sockets=1"', '>>', './Profile/profile'])
-    run(['mkisofs', '-output', './profile.iso', '-l', '-V', 'config-1', '--relaxed-filenames', '--iso-level', '2', './Profile'])
-    run(['VBoxManage', 'storageattach', vmname, '--storagectl', 'IDE_Controller', '--port', '1', '--device', '1', '--type', 'dvddrive', '--medium', './profile.iso'])
+    if xrv9k:
+        logger.debug('Add another drive for sunstone_lite profile')
+        run(['mkdir', '-p', './Profile'])
+        run(['echo', 'PROFILE : lite', '>', './Profile/xrv9k.yaml'])
+        run(['echo', 'CTRL_ETH : FALSE', '>>', './Profile/xrv9k.yaml'])
+        run(['echo', 'HOST_ETH : FALSE', '>>', './Profile/xrv9k.yaml'])
+        run(['echo', 'UVFCP_CPUSHARES : 30', '>>', './Profile/xrv9k.yaml'])
+        run(['echo', 'UVFDP_CPUSHARES : 50', '>>', './Profile/xrv9k.yaml'])
+        run(['echo', 'NUM_OF_1GHUGEPAGES : 1', '>>', './Profile/xrv9k.yaml'])
+        run(['mkisofs', '-output', './bootstrap-scapa.iso', '-l', '-V', 'config-1', '--relaxed-filenames', '--iso-level', '2', './Profile'])
+        run(['VBoxManage', 'storageattach', vmname, '--storagectl', 'IDE_Controller', '--port', '1', '--device', '1', '--type', 'dvddrive', '--medium', './bootstrap-scapa.iso'])
 
     # Change boot order to hd then dvd
     logger.debug('Boot order disk first')

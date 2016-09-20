@@ -12,7 +12,7 @@ Vagrant.configure(2) do |config|
   config.vm.synced_folder '.', '/vagrant', disabled: true
 
   # Give IOS XRv (64-bit) 400 seconds to come up
-  config.vm.boot_timeout = 400
+  config.vm.boot_timeout = 600
 
   # Port 57722 is XR linux (sshd_operns)
   config.vm.network :forwarded_port, guest: 57722, host: 2222, auto_correct: true
