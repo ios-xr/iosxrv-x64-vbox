@@ -65,14 +65,18 @@ import argparse
 import re
 import logging
 from logging import StreamHandler
-import pexpect
 import textwrap
+
+try:
+    import pexpect
+except ImportError:
+    sys.exit('The "pexpect" Python module is not installed. Please install it using pip or OS packaging.')
 
 
 # Telnet ports used to access IOS XE via socat
 CONSOLE_PORT = 65000
 
-# The background is set with 40 plus the number of the color, 
+# The background is set with 40 plus the number of the color,
 # and the foreground with 30.
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
@@ -125,10 +129,11 @@ class ColorHandler(StreamHandler):
         else:
             bg, fg, bold = None, WHITE, False
 
-        # exception?        
+        # exception?
         if record.exc_info:
             formatter = logging.Formatter(format)
-            record.exc_text = self.addColor(formatter.formatException(record.exc_info), bg, fg, bold)
+            record.exc_text = self.addColor(
+                formatter.formatException(record.exc_info), bg, fg, bold)
 
         record.msg = self.addColor(str(record.msg), bg, fg, bold)
         return record
@@ -142,12 +147,12 @@ class ColorHandler(StreamHandler):
 
 
 def run(cmd, hide_error=False, cont_on_error=False):
-    '''
-    Run command to execute CLI and catch errors and display them whether
-    in verbose mode or not.
+    """ Run command to execute CLI and catch errors and display them whether
+        in verbose mode or not.
 
-    Allow the ability to hide errors and also to continue on errors.
-    '''
+        Allow the ability to hide errors and also to continue on errors.
+    """
+
     s_cmd = ' '.join(cmd)
     logger.info("'%s'", s_cmd)
 
@@ -175,9 +180,9 @@ def run(cmd, hide_error=False, cont_on_error=False):
 
 
 def cleanup_vmname(name, box_name):
-    '''
-    Cleanup and unregister (delete) our working box.
-    '''
+    """ Cleanup and unregister (delete) our working box.
+    """
+
     # Power off VM if it is running
     vms_list_running = run(['VBoxManage', 'list', 'runningvms'])
     if name in vms_list_running:
@@ -202,9 +207,9 @@ def pause_to_debug():
 
 
 def start_process(args):
-    '''
-    Start vboxheadless process
-    '''
+    """ Start vboxheadless process
+    """
+
     logger.debug('args: %s', args)
     with open(os.devnull, 'w') as fp:
         subprocess.Popen((args), stdout=fp)
@@ -212,11 +217,11 @@ def start_process(args):
 
 
 def configure_xe(verbose=False, wait=True):
-    '''
-    Bring up XE and do some initial config.
-    Using socat to do the connection as telnet has an
-    odd double return on vbox
-    '''
+    """ Bring up XE and do some initial config.
+        Using socat to do the connection as telnet has an
+        odd double return on vbox
+    """
+
     logger.warn('Waiting for IOS XE to boot (may take 3 minutes or so)')
     localhost = 'localhost'
 
@@ -231,8 +236,7 @@ def configure_xe(verbose=False, wait=True):
         child.expect(PROMPT)
 
     try:
-        child = pexpect.spawn(
-            "socat TCP:%s:%s -,raw,echo=0,escape=0x1d" % (localhost, CONSOLE_PORT))
+        child = pexpect.spawn("socat TCP:%s:%s -,raw,echo=0,escape=0x1d" % (localhost, CONSOLE_PORT))
 
         if verbose:
             child.logfile = open("tmp.log", "w")
@@ -257,7 +261,7 @@ def configure_xe(verbose=False, wait=True):
         time.sleep(5)
         send_line("no service config")
 
-        # NETCONF (odm == Operation Data)
+        # NETCONF (odm == Operational Data)
         send_line("netconf-yang cisco-odm actions parse.showACL")
         send_line("netconf-yang cisco-odm actions parse.showBGP")
         send_line("netconf-yang cisco-odm actions parse.showArchive")
@@ -282,7 +286,8 @@ def configure_xe(verbose=False, wait=True):
         send_line("netconf-yang cisco-odm actions parse.showEthernetCFMstatistics")
         send_line("netconf-yang cisco-odm polling-enable")
         send_line("netconf-yang")
-        send_line("netconf ssh")
+        # this is not needed according to Jason
+        #send_line("netconf ssh")
 
         # hostname / domain-name
         send_line("hostname csr1kv")
@@ -326,13 +331,11 @@ def configure_xe(verbose=False, wait=True):
         time.sleep(10)
 
     except pexpect.TIMEOUT:
-        raise pexpect.TIMEOUT(
-            'Timeout (%s) exceeded in read().' % str(child.timeout))
+        raise pexpect.TIMEOUT('Timeout (%s) exceeded in read().' % str(child.timeout))
 
 
 def main(argv):
     input_iso = ''
-    create_ova = False
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -366,32 +369,6 @@ def main(argv):
                         default=logging.WARN, help='turn on verbose messages')
     args = parser.parse_args()
 
-    # Handle Input ISO (Local or URI)
-    if re.search(':/', args.ISO_FILE):
-        # URI Image
-        cmd_string = 'scp %s@%s .' % (getpass.getuser(), args.ISO_FILE)
-        logger.warn(
-            'Will attempt to scp the remote image to current working dir. You may be required to enter your password.')
-        logger.debug('%s\n', cmd_string)
-        subprocess.call(cmd_string, shell=True)
-        input_iso = os.path.basename(args.ISO_FILE)
-    else:
-        # Local image
-        input_iso = args.ISO_FILE
-
-    # Handle create OVA
-    create_ova = args.create_ova
-
-    # if debug flag then set the logger to debug
-    if args.debug: 
-        args.verbose = logging.DEBUG
-
-    if not os.path.exists(input_iso):
-        sys.exit('%s does not exist' % input_iso)
-
-    # Set Virtualbox VM name from the input ISO
-    vmname = os.path.basename(os.path.splitext(input_iso)[0])
-
     # setup logging
     root_logger = logging.getLogger()
     root_logger.setLevel(level=args.verbose)
@@ -401,6 +378,34 @@ def main(argv):
     root_logger.addHandler(handler)
     logger = logging.getLogger("box-builder")
 
+    # PRE-CHECK: is socat installed?
+    logger.warn('Check whether "socat" is installed')
+    try:
+        run(['socat', '-V'])
+    except OSError, e:
+        sys.exit('The "socat" utility is not installed. Please install it prior to using this script.')
+
+    # Handle Input ISO (Local or URI)
+    if re.search(':/', args.ISO_FILE):
+        # URI Image
+        cmd_string = 'scp %s@%s .' % (getpass.getuser(), args.ISO_FILE)
+        logger.warn('Will attempt to scp the remote image to current working dir. You may be required to enter your password.')
+        logger.debug('%s\n', cmd_string)
+        subprocess.call(cmd_string, shell=True)
+        input_iso = os.path.basename(args.ISO_FILE)
+    else:
+        # Local image
+        input_iso = args.ISO_FILE
+
+    # if debug flag then set the logger to debug
+    if args.debug:
+        args.verbose = logging.DEBUG
+
+    if not os.path.exists(input_iso):
+        sys.exit('%s does not exist' % input_iso)
+
+    # Set Virtualbox VM name from the input ISO
+    vmname = os.path.basename(os.path.splitext(input_iso)[0])
     logger.warn('Input ISO is %s', input_iso)
 
     # playing it safe, should be OK in 3G / 3072
@@ -438,7 +443,7 @@ def main(argv):
         logger.debug('Found and deleted previous %s', box_out)
 
     # Delete existing OVA
-    if os.path.exists(ova_out) and create_ova is True:
+    if os.path.exists(ova_out) and args.create_ova is True:
         os.remove(ova_out)
         logger.debug('Found and deleted previous %s', ova_out)
 
@@ -554,8 +559,9 @@ def main(argv):
             continue
 
     # Configure IOS XE
-    # do print steps for logging set to DEBUG
-    # default is INFO
+    # do print steps for logging set to DEBUG and INFO
+    # DEBUG also prints the I/O with the device on the console
+    # default is WARN
     configure_xe(args.verbose < logging.WARN)
 
     # Good place to stop and take a look if --debug was entered
@@ -597,7 +603,7 @@ def main(argv):
     logger.warn('Created: %s', box_out)
 
     # Create OVA
-    if create_ova is True:
+    if args.create_ova is True:
         logger.warn('Creating OVA %s', ova_out)
         run(['VBoxManage', 'export', vmname, '--output', ova_out])
         logger.debug('Created OVA %s', ova_out)
