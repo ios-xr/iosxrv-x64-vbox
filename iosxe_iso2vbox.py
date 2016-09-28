@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 '''
 Author: Rich Wellum (richwellum@gmail.com)
-    Adapted and enhanced (fwiw) for use with IOS XE 
+    Adapted and enhanced (fwiw) for use with IOS XE
     by Ralph Schmieder (rschmied@cisco.com)
 
 This is a tool to take an IOS XE Virtual Machine ISO image and convert it into
@@ -47,7 +47,7 @@ Vagrantfiles for more advanced multi-node topologies.
   . Configures NETCONF and RESTCONF (config and operational data)
   . Closes the VM down, once configured.
 
-The resultant box image, will come up fully networked and ready for use 
+The resultant box image, will come up fully networked and ready for use
 with RESTCONF and NETCONF.
 
 NOTE: If more than one interface in the resulting Vagrant box is required
@@ -85,9 +85,10 @@ logger = logging.getLogger(__name__)
 
 
 class ColorHandler(StreamHandler):
-    """ Add colors to logging output
-        partial credits to
-        http://opensourcehacker.com/2013/03/14/ultima-python-logger-somewhere-over-the-rainbow/
+    """
+    Add colors to logging output
+    partial credits to
+    http://opensourcehacker.com/2013/03/14/ultima-python-logger-somewhere-over-the-rainbow/
     """
 
     def __init__(self, colored):
@@ -147,10 +148,11 @@ class ColorHandler(StreamHandler):
 
 
 def run(cmd, hide_error=False, cont_on_error=False):
-    """ Run command to execute CLI and catch errors and display them whether
-        in verbose mode or not.
+    """
+    Run command to execute CLI and catch errors and display them whether
+    in verbose mode or not.
 
-        Allow the ability to hide errors and also to continue on errors.
+    Allow the ability to hide errors and also to continue on errors.
     """
 
     s_cmd = ' '.join(cmd)
@@ -180,7 +182,8 @@ def run(cmd, hide_error=False, cont_on_error=False):
 
 
 def cleanup_vmname(name, box_name):
-    """ Cleanup and unregister (delete) our working box.
+    """
+    Cleanup and unregister (delete) our working box.
     """
 
     # Power off VM if it is running
@@ -198,7 +201,8 @@ def cleanup_vmname(name, box_name):
 
 def pause_to_debug():
     logger.critical("Pause before debug")
-    logger.critical("Use: 'socat TCP:localhost:65000 -,raw,echo=0,escape=0x1d' to access the VM")
+    logger.critical(
+        "Use: 'socat TCP:localhost:65000 -,raw,echo=0,escape=0x1d' to access the VM")
     raw_input("Press Enter to continue.")
     # To debug post box creation, add the following line to Vagrantfile
     # config.vm.provider "virtualbox" do |v|
@@ -207,7 +211,8 @@ def pause_to_debug():
 
 
 def start_process(args):
-    """ Start vboxheadless process
+    """
+    Start vboxheadless process
     """
 
     logger.debug('args: %s', args)
@@ -217,9 +222,10 @@ def start_process(args):
 
 
 def configure_xe(verbose=False, wait=True):
-    """ Bring up XE and do some initial config.
-        Using socat to do the connection as telnet has an
-        odd double return on vbox
+    """
+    Bring up XE and do some initial config.
+    Using socat to do the connection as telnet has an
+    odd double return on vbox
     """
 
     logger.warn('Waiting for IOS XE to boot (may take 3 minutes or so)')
@@ -236,7 +242,8 @@ def configure_xe(verbose=False, wait=True):
         child.expect(PROMPT)
 
     try:
-        child = pexpect.spawn("socat TCP:%s:%s -,raw,echo=0,escape=0x1d" % (localhost, CONSOLE_PORT))
+        child = pexpect.spawn(
+            "socat TCP:%s:%s -,raw,echo=0,escape=0x1d" % (localhost, CONSOLE_PORT))
 
         if verbose:
             child.logfile = open("tmp.log", "w")
@@ -245,7 +252,8 @@ def configure_xe(verbose=False, wait=True):
         # wait for indication that boot has gone through
         if (wait):
             child.expect(r'CRYPTO-6-GDOI_ON_OFF: GDOI is OFF', child.timeout)
-            logger.warn('Logging into Vagrant Virtualbox and configuring IOS XE')
+            logger.warn(
+                'Logging into Vagrant Virtualbox and configuring IOS XE')
 
         send_line()
         time.sleep(5)
@@ -287,7 +295,7 @@ def configure_xe(verbose=False, wait=True):
         send_line("netconf-yang cisco-odm polling-enable")
         send_line("netconf-yang")
         # this is not needed according to Jason
-        #send_line("netconf ssh")
+        # send_line("netconf ssh")
 
         # hostname / domain-name
         send_line("hostname csr1kv")
@@ -311,9 +319,13 @@ def configure_xe(verbose=False, wait=True):
         send_line("ip ssh pubkey-chain")
         send_line("username vagrant")
         send_line("key-string")
-        send_line("AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKL")
-        send_line("v6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+G")
-        send_line("PXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ==")
+        send_line("AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eW")
+        send_line("W6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o")
+        send_line("9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXP")
+        send_line("ITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pz")
+        send_line("C6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZE")
+        send_line("nDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXz")
+        send_line("cWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ==")
         send_line("exit")
 
         # restconf
@@ -331,7 +343,8 @@ def configure_xe(verbose=False, wait=True):
         time.sleep(10)
 
     except pexpect.TIMEOUT:
-        raise pexpect.TIMEOUT('Timeout (%s) exceeded in read().' % str(child.timeout))
+        raise pexpect.TIMEOUT(
+            'Timeout (%s) exceeded in read().' % str(child.timeout))
 
 
 def main(argv):
@@ -350,9 +363,9 @@ def main(argv):
 
         epilog=textwrap.dedent('''\
             E.g.:
-                box build with local iso: 
+                box build with local iso:
                     %(prog)s csr1000v-universalk9.16.03.01.iso
-                box build with remote iso: 
+                box build with remote iso:
                     %(prog)s user@server:/myboxes/csr1000v-universalk9.16.03.01.iso
         '''))
 
@@ -382,14 +395,16 @@ def main(argv):
     logger.warn('Check whether "socat" is installed')
     try:
         run(['socat', '-V'])
-    except OSError, e:
-        sys.exit('The "socat" utility is not installed. Please install it prior to using this script.')
+    except OSError:
+        sys.exit(
+            'The "socat" utility is not installed. Please install it prior to using this script.')
 
     # Handle Input ISO (Local or URI)
     if re.search(':/', args.ISO_FILE):
         # URI Image
         cmd_string = 'scp %s@%s .' % (getpass.getuser(), args.ISO_FILE)
-        logger.warn('Will attempt to scp the remote image to current working dir. You may be required to enter your password.')
+        logger.warn(
+            'Will attempt to scp the remote image to current working dir. You may be required to enter your password.')
         logger.debug('%s\n', cmd_string)
         subprocess.call(cmd_string, shell=True)
         input_iso = os.path.basename(args.ISO_FILE)
@@ -451,9 +466,9 @@ def main(argv):
     cleanup_vmname(vmname, vbox)
 
     # Remove stale SSH entry
-    #logger.debug('Removing stale SSH entries')
-    #run(['ssh-keygen', '-R', '[localhost]:2222'])
-    #run(['ssh-keygen', '-R', '[localhost]:2223'])
+    # logger.debug('Removing stale SSH entries')
+    # run(['ssh-keygen', '-R', '[localhost]:2222'])
+    # run(['ssh-keygen', '-R', '[localhost]:2223'])
 
     # Create and register a new VirtualBox VM
     logger.debug('Create VM')
@@ -470,8 +485,8 @@ def main(argv):
     logger.debug('Add ACPI')
     run(['VBoxManage', 'modifyvm', vmname, '--memory', str(ram), '--acpi', 'on'])
 
-    #logger.debug('Add two CPUs')
-    #run(['VBoxManage', 'modifyvm', vmname, '--cpus', '2'])
+    # logger.debug('Add two CPUs')
+    # run(['VBoxManage', 'modifyvm', vmname, '--cpus', '2'])
 
     # Setup networking - including ssh
     # it seems to be totally irrelevant how many interfaces are provisioned into
@@ -619,7 +634,8 @@ def main(argv):
     logger.warn('  vagrant up')
 
     logger.warn('Note:')
-    logger.warn('  Both the XE SSH and NETCONF/RESTCONF username and password is vagrant/vagrant')
+    logger.warn(
+        '  Both the XE SSH and NETCONF/RESTCONF username and password is vagrant/vagrant')
 
 
 if __name__ == '__main__':
