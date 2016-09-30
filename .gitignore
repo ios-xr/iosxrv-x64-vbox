@@ -4,3 +4,8 @@ machines
 .pyc
 *.pyc
 /README.html
+/.Python
+/bin
+/lib
+/pip-selfcheck.json
+/include/python2.7
