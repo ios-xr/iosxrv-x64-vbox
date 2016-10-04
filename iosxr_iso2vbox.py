@@ -68,6 +68,8 @@ from argparse import RawDescriptionHelpFormatter
 import re
 import logging
 import pexpect
+import tempfile
+import shutil
 
 # Telnet ports used to access IOS XR via socat
 CONSOLE_PORT = 65000
@@ -255,16 +257,24 @@ def configure_xr(argv):
 
         # Bring up dhcp on MGMT for vagrant access
         child.sendline("interface MgmtEth0/RP0/CPU0/0")
-        child.sendline(" ipv4 address dhcp")
+        # child.sendline(" ipv4 address dhcp")
+        child.sendline(" ipv4 address 10.0.2.15/24")
         child.sendline(" no shutdown")
         child.expect("config-if")
 
         # TPA source update
+        # if not xrv9k:
         child.sendline("tpa address-family ipv4 update-source MgmtEth0/RP0/CPU0/0")
         child.expect("config")
 
-        child.sendline("router static address-family ipv4 unicast 0.0.0.0/0 MgmtEth0/RP0/CPU0/0 10.0.2.2")
-        child.expect("config")
+        # add east west config if sunstone lite image
+        # if xrv9k:
+        #     child.sendline("tpa east-west MgmtEth0/RP0/CPU0/0")
+        #     child.expect("config")
+
+        # if not xrv9k:
+        # child.sendline("router static address-family ipv4 unicast 0.0.0.0/0 MgmtEth0/RP0/CPU0/0 10.0.2.2")
+        # child.expect("config")
 
         # Configure ssh if a k9/crypto image
         if crypto:
@@ -344,8 +354,8 @@ def configure_xr(argv):
         # Final check to make sure MGMT stayed up
         xr_cli_wait_for_output('show ipv4 interface MgmtEth0/RP0/CPU0/0 | i Internet address', '10.0.2.15')
 
-        logger.debug('Waiting 30 seconds...')
-        time.sleep(30)
+        logger.debug('Waiting 10 seconds...')
+        time.sleep(10)
 
     except pexpect.TIMEOUT:
         raise pexpect.TIMEOUT('Timeout (%s) exceeded in read().' % str(child.timeout))
@@ -354,6 +364,8 @@ def configure_xr(argv):
 def main(argv):
     input_iso = ''
     create_ova = False
+    global xrv9k
+    xrv9k = False
 
     parser = argparse.ArgumentParser(
         formatter_class=RawDescriptionHelpFormatter,
@@ -419,7 +431,8 @@ def main(argv):
     if 'xrv9k' in input_iso:
         logger.debug('Found an XRv9k image')
         xrv9k = True
-        ram = 8192
+        ram = 6144
+        # ram = 5120
 
     logger.info('Creating Vagrant VirtualBox')
 
@@ -549,17 +562,24 @@ def main(argv):
 
     # Add another DVD drive to carry the Profile for sunstone lite
     # Needs brew install dvdrtools
-    # TODO: Make this optional or dependent on recognizing a sunstone lite ISO
     if xrv9k:
         logger.debug('Add another drive for sunstone_lite profile')
-        run(['mkdir', '-p', './Profile'])
-        run(['echo', 'PROFILE : lite', '>', './Profile/xrv9k.yaml'])
-        run(['echo', 'CTRL_ETH : FALSE', '>>', './Profile/xrv9k.yaml'])
-        run(['echo', 'HOST_ETH : FALSE', '>>', './Profile/xrv9k.yaml'])
-        run(['echo', 'UVFCP_CPUSHARES : 30', '>>', './Profile/xrv9k.yaml'])
-        run(['echo', 'UVFDP_CPUSHARES : 50', '>>', './Profile/xrv9k.yaml'])
-        run(['echo', 'NUM_OF_1GHUGEPAGES : 1', '>>', './Profile/xrv9k.yaml'])
-        run(['mkisofs', '-output', './bootstrap-scapa.iso', '-l', '-V', 'config-1', '--relaxed-filenames', '--iso-level', '2', './Profile'])
+        temp_dir = tempfile.mkdtemp()
+        try:
+            yaml_file = os.path.join(temp_dir, 'xrv9k.yaml')
+            with open(yaml_file, 'w') as yaml:
+                yaml.write("PROFILE : lite\n"
+                           "CTRL_ETH : FALSE\n"
+                           "HOST_ETH : FALSE\n"
+                           "UVFCP_CPUSHARES : 30\n"
+                           "UVFDP_CPUSHARES : 50\n"
+                           "NUM_OF_1GHUGEPAGES : 1\n")
+
+            run(['mkisofs', '-output', './bootstrap-scapa.iso', '-l', '-V', 'config-1', '--relaxed-filenames', '--iso-level', '2', temp_dir])
+            shutil.rmtree(temp_dir)
+        except OSError:
+            pass
+
         run(['VBoxManage', 'storageattach', vmname, '--storagectl', 'IDE_Controller', '--port', '1', '--device', '1', '--type', 'dvddrive', '--medium', './bootstrap-scapa.iso'])
 
     # Change boot order to hd then dvd

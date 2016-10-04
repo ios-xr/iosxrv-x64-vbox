@@ -29,11 +29,11 @@ Vagrant.configure(2) do |config|
     v.customize ['modifyvm', :id, '--uart2', '0x2F8', 3, '--uartmode2', 'disconnected']
   end
 
-  # Ping to test connection to outside world, using DOGFOOD as a marker
-  config.vm.provision :shell, :inline => '/bin/ping -c 1 -p C15C0D06F00D cisco.com &> /dev/null && echo online >> /tmp/state.txt || echo offline >> /tmp/state.txt'
+  # # Ping to test connection to outside world, using DOGFOOD as a marker
+  # config.vm.provision :shell, :inline => '/bin/ping -c 1 -p C15C0D06F00D cisco.com &> /dev/null && echo online >> /tmp/state.txt || echo offline >> /tmp/state.txt'
 
-  # A nslookup to register with opendns - this will fail as it's a dummy domain but will be markable
-  config.vm.provision :shell, :inline => "nslookup #{SecureRandom.uuid}.iosxrv-x64.cisco.com 208.67.222.222 &>> /dev/null && echo nslookup_s >> /tmp/state.txt || echo nslookup_f >> /tmp/state.txt"
+  # # A nslookup to register with opendns - this will fail as it's a dummy domain but will be markable
+  # config.vm.provision :shell, :inline => "nslookup #{SecureRandom.uuid}.iosxrv-x64.cisco.com 208.67.222.222 &>> /dev/null && echo nslookup_s >> /tmp/state.txt || echo nslookup_f >> /tmp/state.txt"
 
   config.vm.post_up_message = "
     Welcome to the IOS XRv (64-bit) VirtualBox.
