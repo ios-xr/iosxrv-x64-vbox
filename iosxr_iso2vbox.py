@@ -273,8 +273,8 @@ def configure_xr(argv):
         #     child.expect("config")
 
         # if not xrv9k:
-        # child.sendline("router static address-family ipv4 unicast 0.0.0.0/0 MgmtEth0/RP0/CPU0/0 10.0.2.2")
-        # child.expect("config")
+        child.sendline("router static address-family ipv4 unicast 0.0.0.0/0 MgmtEth0/RP0/CPU0/0 10.0.2.2")
+        child.expect("config")
 
         # Configure ssh if a k9/crypto image
         if crypto:
@@ -502,14 +502,20 @@ def main(argv):
 
     # Setup networking - including ssh
     logger.debug('Create eight NICs')
-    run(['VBoxManage', 'modifyvm', vmname, '--nic1', 'nat', '--nictype1', 'virtio'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic2', 'nat', '--nictype2', 'virtio'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic3', 'nat', '--nictype3', 'virtio'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic4', 'nat', '--nictype4', 'virtio'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic5', 'nat', '--nictype5', 'virtio'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic6', 'nat', '--nictype6', 'virtio'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic7', 'nat', '--nictype7', 'virtio'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic8', 'nat', '--nictype8', 'virtio'])
+    if xrv9k:
+        nictype = '82540EM'
+    else:
+        nictype = 'virtio'
+
+    run(['VBoxManage', 'modifyvm', vmname, '--nic1', 'nat', '--nictype1', '%s' % nictype])
+    run(['VBoxManage', 'modifyvm', vmname, '--nic2', 'nat', '--nictype2', '%s' % nictype])
+    run(['VBoxManage', 'modifyvm', vmname, '--nic3', 'nat', '--nictype3', '%s' % nictype])
+    run(['VBoxManage', 'modifyvm', vmname, '--nic4', 'nat', '--nictype4', '%s' % nictype])
+    if not xrv9k:
+        run(['VBoxManage', 'modifyvm', vmname, '--nic5', 'nat', '--nictype5', '%s' % nictype])
+        run(['VBoxManage', 'modifyvm', vmname, '--nic6', 'nat', '--nictype6', '%s' % nictype])
+        run(['VBoxManage', 'modifyvm', vmname, '--nic7', 'nat', '--nictype7', '%s' % nictype])
+        run(['VBoxManage', 'modifyvm', vmname, '--nic8', 'nat', '--nictype8', '%s' % nictype])
 
     # Add Serial ports
     #
