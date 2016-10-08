@@ -284,10 +284,10 @@ def configure_xr(argv):
             child.expect("config")
 
         # Configure gRPC protocol if MGBL package is available
-        if mgbl:
-            child.sendline("grpc")
-            child.sendline(" port 57777")
-            child.expect("config-grpc")
+        # if mgbl:
+        #     child.sendline("grpc")
+        #     child.sendline(" port 57777")
+        #     child.expect("config-grpc")
 
         # Commit changes and end
         child.sendline("commit")
@@ -609,6 +609,10 @@ def main(argv):
             time.sleep(5)
             continue
 
+    # Debug before config is entered
+    if args.debug:
+        pause_to_debug()
+
     # Configure IOS XR and IOS XR Linux
     configure_xr(args.verbose)
 
@@ -670,6 +674,8 @@ def main(argv):
         iosxr_test_path = os.path.join(pathname, 'iosxr_test.py')
         cmd_string = "python %s %s %s" % (iosxr_test_path, box_out, verbose_str)
         subprocess.check_output(cmd_string, shell=True)
+        # Clean up default test VM
+        run(['vagrant', 'destroy', '--force'], cont_on_error=True)
 
     logger.info('Single node use:')
     logger.info(" vagrant init 'IOS XRv'")
@@ -683,9 +689,6 @@ def main(argv):
     logger.info(" Or: 'vagrant up rtr1', 'vagrant up rtr2'")
 
     logger.info('Note that both the XR Console and the XR linux shell username and password is vagrant/vagrant')
-
-    # Clean up default test VM
-    run(['vagrant', 'destroy', '--force'], cont_on_error=True)
 
     # Clean up Vagrantfile
     try:
