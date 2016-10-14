@@ -334,7 +334,7 @@ def configure_xr(argv):
         child.sendline("run echo 'nameserver 208.67.220.220' >> /etc/resolv.conf")
         child.expect(prompt)
 
-        # Experimental - one possible way to get connectivity
+        # TODO: Experimental - one possible way to get connectivity
         child.sendline("bash -c ip route add default via 10.0.2.2 src 10.0.2.15")
         child.expect(prompt)
 
