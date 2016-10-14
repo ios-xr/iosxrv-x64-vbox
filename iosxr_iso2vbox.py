@@ -257,8 +257,8 @@ def configure_xr(argv):
 
         # Bring up dhcp on MGMT for vagrant access
         child.sendline("interface MgmtEth0/RP0/CPU0/0")
-        # child.sendline(" ipv4 address dhcp")
-        child.sendline(" ipv4 address 10.0.2.15/24")
+        child.sendline(" ipv4 address dhcp")
+        # child.sendline(" ipv4 address 10.0.2.15/24")
         child.sendline(" no shutdown")
         child.expect("config-if")
 
@@ -332,6 +332,10 @@ def configure_xr(argv):
         child.sendline("run echo 'nameserver 208.67.222.222' >> /etc/resolv.conf")
         child.expect(prompt)
         child.sendline("run echo 'nameserver 208.67.220.220' >> /etc/resolv.conf")
+        child.expect(prompt)
+
+        # Experimental - one possible way to get connectivity
+        child.sendline("bash -c ip route add default via 10.0.2.2 src 10.0.2.15")
         child.expect(prompt)
 
         # Start operns sshd server so vagrant ssh can access app-hosting space

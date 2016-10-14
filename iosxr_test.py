@@ -207,13 +207,16 @@ def test_xr():
             return False
         s.prompt()
 
-        if 'full' in input_box:
-            logger.debug('Check show run for grpc:')
-            s.sendline('show run grpc')
-            output = s.expect(['port 57777', pexpect.EOF, pexpect.TIMEOUT])
-            if not check_result(output, 'grpc is configured'):
-                return False
-            s.prompt()
+        # TODO
+        # Commented out for now as xrv9k grpc uses too much memory
+        # Eventually shift this to passing in an xrv9k atribute or hopefully fix grpc
+        # if 'full' in input_box:
+        #     logger.debug('Check show run for grpc:')
+        #     s.sendline('show run grpc')
+        #     output = s.expect(['port 57777', pexpect.EOF, pexpect.TIMEOUT])
+        #     if not check_result(output, 'grpc is configured'):
+        #         return False
+        #     s.prompt()
 
         s.logout()
     except pxssh.ExceptionPxssh as e:
