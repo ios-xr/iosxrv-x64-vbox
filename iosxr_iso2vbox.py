@@ -68,6 +68,7 @@ from argparse import RawDescriptionHelpFormatter
 import re
 import logging
 import pexpect
+import tarfile
 
 # Telnet ports used to access IOS XR via socat
 CONSOLE_PORT = 65000
@@ -435,6 +436,7 @@ def main(argv):
     vbox = os.path.join(box_dir, vmname + '.vbox')
     vdi = os.path.join(box_dir, vmname + '.vdi')
     box_out = os.path.join(box_dir, vmname + '.box')
+    box_tmp = os.path.join(box_dir, vmname)
     ova_out = os.path.join(box_dir, vmname + '.ova')
     pathname = os.path.abspath(os.path.dirname(sys.argv[0]))
 
@@ -443,6 +445,7 @@ def main(argv):
     logger.debug('base_dir: %s', base_dir)
     logger.debug('box_dir:  %s', box_dir)
     logger.debug('box_out:  %s', box_out)
+    logger.debug('box_tmp:  %s', box_tmp)
     logger.debug('vbox:     %s', vbox)
 
     if not os.path.exists(base_dir):
@@ -455,6 +458,11 @@ def main(argv):
     if os.path.exists(box_out):
         os.remove(box_out)
         logger.debug('Found and deleted previous %s', box_out)
+
+    # Delete existing temporary file
+    if os.path.exists(box_tmp):
+        os.remove(box_tmp)
+        logger.debug('Found and deleted previous %s', box_tmp)
 
     # Delete existing OVA
     if os.path.exists(ova_out) and create_ova is True:
@@ -603,7 +611,14 @@ def main(argv):
     # Add in embedded Vagrantfile
     vagrantfile_pathname = os.path.join(pathname, 'include', 'embedded_vagrantfile')
 
-    run(['vagrant', 'package', '--base', vmname, '--vagrantfile', vagrantfile_pathname, '--output', box_out])
+    run(['vagrant', 'package', '--base', vmname,
+         '--vagrantfile', vagrantfile_pathname, '--output', box_out])
+    logger.info("Adding metadata.json to final box")
+    run(['gunzip', '--force', '-S', '.box', box_out])
+    with tarfile.open(box_tmp, 'a') as tarf:
+        tarf.add("./metadata.json")
+    run(['gzip', '--force', '-S', '.box', box_tmp])
+
     logger.info('Created: %s', box_out)
 
     # Create OVA
