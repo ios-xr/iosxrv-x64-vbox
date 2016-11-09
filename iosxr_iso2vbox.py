@@ -230,6 +230,10 @@ def configure_xr(argv):
         child.sendline("ztp terminate noprompt")
         child.expect(prompt)
 
+        # Get the image build information
+        child.sendline("show version")
+        child.expect(prompt)
+
         # Determine if the image is a crypto/k9 image or not
         # This will be used to determine whether to configure ssh or not
         child.sendline("bash -c rpm -qa | grep k9sec")
