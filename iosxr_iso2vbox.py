@@ -125,13 +125,13 @@ def cleanup_vmname(name, box_name):
     '''
     # Power off VM if it is running
     vms_list_running = run(['VBoxManage', 'list', 'runningvms'])
-    if name in vms_list_running:
+    if re.search('"' + name + '"', vms_list_running):
         logger.debug("'%s' is running, powering off...", name)
         run(['VBoxManage', 'controlvm', name, 'poweroff'])
 
     # Unregister and delete
     vms_list = run(['VBoxManage', 'list', 'vms'])
-    if name in vms_list:
+    if re.search('"' + name + '"', vms_list):
         logger.debug("'%s' is registered, unregistering and deleting", name)
         run(['VBoxManage', 'unregistervm', box_name, '--delete'])
 
