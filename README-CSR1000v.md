@@ -18,8 +18,8 @@ All contributions under this project are done so under the BSD license detailed 
 
 1. *git clone* this repo:
 
-		git clone https://github.com/ios-xe/something.git
-
+		git clone https://github.com/ios-xr/iosxrv-x64-vbox.git
+		
 2. Install VirtualBox, Vagrant and socat (see [README.rst](README.rst) for more detail).
 3. Download the appropriate ISO file, e.g. `csr1000v-universalk9.16.03.01.iso` from CCO (software image download requires a login with proper access rights)
 4. Generate the (VirtualBox-flavored) Vagrant box. Call the script and provide the path to the CSR1kv ISO file. The rest is done automatically. The script has instructions printed when it is done. 
