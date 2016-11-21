@@ -569,15 +569,25 @@ def main(argv):
     logger.debug('Starting VM...')
     start_process(['VBoxHeadless', '--startvm', vmname])
 
+    elapsed_time = 0
     while True:
-        vms_list = run(['VBoxManage', 'showvminfo', vmname])
-        if 'running (since' in vms_list:
+        vms_list_running = run(['VBoxManage', 'list', 'runningvms'])
+        if re.search('"' + vmname + '"', vms_list_running):
             logger.debug('Successfully started to boot VM disk image')
             break
-        else:
-            logger.warning('Failed to install VM disk image\n')
+        elif elapsed_time < 600:
+            logger.warning("VM is not yet running after %d seconds; "
+                           "sleep 5 seconds and retry", elapsed_time)
             time.sleep(5)
+            elapsed_time = elapsed_time + 5
             continue
+        else:
+            # Dump verbose output in case it helps...
+            run(['VBoxManage', 'showvminfo', vmname])
+            # TODO: cleanup gracefully
+            sys.exit("VM still not running after {0} seconds!"
+                     .format(elapsed_time))
+
 
     # Configure IOS XR and IOS XR Linux
     configure_xr(args.verbose)
@@ -594,7 +604,7 @@ def main(argv):
 
     while True:
         vms_list_running = run(['VBoxManage', 'list', 'runningvms'])
-        if vmname in vms_list_running:
+        if re.search('"' + vmname + '"', vms_list_running):
             logger.debug('Still shutting down')
             continue
         else:
