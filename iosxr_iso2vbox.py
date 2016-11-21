@@ -85,6 +85,9 @@ def set_logging():
     logging.basicConfig(format=FORMAT)
 
 
+class AbortScriptException(Exception):
+    """Abort the script and clean up before exiting."""
+
 def run(cmd, hide_error=False, cont_on_error=False):
     '''
     Run command to execute CLI and catch errors and display them whether
@@ -112,28 +115,52 @@ def run(cmd, hide_error=False, cont_on_error=False):
         logger.error('Error output for: ' + s_cmd)
         logger.error(tup_output[1])
         if not cont_on_error:
-            sys.exit('Quitting due to run command error')
-        else:
-            logger.debug('Continuing despite error cont_on_error=%d', cont_on_error)
+            raise AbortScriptException(
+                "Command '{0}' failed with return code {1}".format(
+                    s_cmd, output.return_code))
+        logger.debug('Continuing despite error %d', output.return_code)
 
     return tup_output[0]
 
 
-def cleanup_vmname(name, box_name):
-    '''
-    Cleanup and unregister (delete) our working box.
-    '''
+def cleanup_vmname(vmname, vbox=None):
+    """Power off the given virtualbox VM.
+    
+    If the vbox name is specified, also unregister (delete) it.
+    """
     # Power off VM if it is running
     vms_list_running = run(['VBoxManage', 'list', 'runningvms'])
-    if re.search('"' + name + '"', vms_list_running):
-        logger.debug("'%s' is running, powering off...", name)
-        run(['VBoxManage', 'controlvm', name, 'poweroff'])
+    if re.search('"' + vmname + '"', vms_list_running):
+        logger.debug("'%s' is running, powering off...", vmname)
+        run(['VBoxManage', 'controlvm', vmname, 'poweroff'])
 
-    # Unregister and delete
-    vms_list = run(['VBoxManage', 'list', 'vms'])
-    if re.search('"' + name + '"', vms_list):
-        logger.debug("'%s' is registered, unregistering and deleting", name)
-        run(['VBoxManage', 'unregistervm', box_name, '--delete'])
+        logger.debug('Waiting for machine to shutdown')
+
+        elapsed_time = 0
+        while True:
+            vms_list_running = run(['VBoxManage', 'list', 'runningvms'])
+            if not re.search('"' + vmname + '"', vms_list_running):
+                logger.debug('Successfully shut down')
+                break
+            elif elapsed_time < 600:
+                logger.warning("VM is not yet stopped after %d seconds; "
+                               "sleep 5 seconds and retry", elapsed_time)
+                time.sleep(5)
+                elapsed_time = elapsed_time + 5
+                continue
+            else:
+                # Dump verbose output in case it helps...
+                run(['VBoxManage', 'showvminfo', vmname])
+                raise AbortScriptException(
+                    "VM still not stopped after {0} seconds!"
+                    .format(elapsed_time))
+
+    if vbox:
+        vms_list = run(['VBoxManage', 'list', 'vms'])
+        if re.search('"' + vmname + '"', vms_list):
+            logger.debug("'%s' is registered, unregistering and deleting it",
+                         vmname)
+            run(['VBoxManage', 'unregistervm', vbox, '--delete'])
 
 
 def pause_to_debug():
@@ -365,10 +392,8 @@ def configure_xr(argv):
         raise pexpect.TIMEOUT('Timeout (%s) exceeded in read().' % str(child.timeout))
 
 
-def main(argv):
-    input_iso = ''
-    create_ova = False
-
+def parse_args():
+    """Parse sys.argv and return args"""
     parser = argparse.ArgumentParser(
         formatter_class=RawDescriptionHelpFormatter,
         description='A tool to create an IOS XRv Vagrant VirtualBox box from ' +
@@ -391,7 +416,227 @@ def main(argv):
                         action='store_const', const=logging.DEBUG,
                         default=logging.INFO, help='turn on verbose messages')
 
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def create_vbox_vm(vmname, base_dir, input_iso):
+    """Create and configure (but do not start) the VirtualBox VM."""
+    logger.info('Creating and configuring VirtualBox VM')
+
+    version = run(['VBoxManage', '-v'])
+    logger.debug('Virtual Box Manager Version: %s', version)
+
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir)
+    logger.debug('base_dir: %s', base_dir)
+
+    box_dir = os.path.join(base_dir, vmname)
+    if not os.path.exists(box_dir):
+        os.makedirs(box_dir)
+    logger.debug('box_dir:  %s', box_dir)
+
+    vbox = os.path.join(box_dir, vmname + '.vbox')
+    logger.debug('vbox:     %s', vbox)
+
+    # Clean up existing vm's
+    cleanup_vmname(vmname, vbox)
+
+    # Remove stale SSH entry
+    logger.debug('Removing stale SSH entries')
+    run(['ssh-keygen', '-R', '[localhost]:2222'])
+    run(['ssh-keygen', '-R', '[localhost]:2223'])
+
+    # Create and register a new VirtualBox VM
+    logger.debug('Create VM')
+    run(['VBoxManage', 'createvm', '--name', vmname,
+         '--ostype', 'Linux26_64', '--basefolder', base_dir])
+
+    logger.debug('Register VM')
+    run(['VBoxManage', 'registervm', vbox])
+
+    # Setup memory, display, cpus etc
+    logger.debug('VRAM 12')
+    run(['VBoxManage', 'modifyvm', vmname, '--vram', '12'])
+
+    logger.debug('Add ACPI')
+    run(['VBoxManage', 'modifyvm', vmname, '--memory', str(ram),
+         '--acpi', 'on'])
+
+    logger.debug('Add two CPUs')
+    run(['VBoxManage', 'modifyvm', vmname, '--cpus', '2'])
+
+    # Setup networking - including ssh
+    logger.debug('Create eight NICs')
+    for i in range(1, 9):
+        run(['VBoxManage', 'modifyvm', vmname,
+             '--nic' + str(i), 'nat', '--nictype' + str(i), 'virtio'])
+
+    # Add Serial ports
+    #
+    # 1. what kind of serial port the virtual machine should see by selecting
+    # an I/O base
+    # address and interrupt (IRQ). For these, we recommend to use the
+    # traditional values, which are:
+    # a) COM1: I/O base 0x3F8, IRQ 4
+    # b) COM2: I/O base 0x2F8, IRQ 3
+    # c) COM3: I/O base 0x3E8, IRQ 4
+    # d) COM4: I/O base 0x2E8, IRQ 3
+    # [--uartmode<1-N> disconnected|
+    #  server <pipe>|
+    #  client <pipe>|
+    #  tcpserver <port>|
+    #  tcpclient <hostname:port>|
+    #  file <file>|
+    #  <devicename>]
+
+    # Option 1: Output to a simple file: 'tail -f /tmp/serial' (no file?)
+    # VBoxManage modifyvm $VMNAME --uart1 0x3f8 4 --uartmode1 file /tmp/serial1
+
+    # Option 2: Connect via socat as telnet has double echo issue)
+    # But can still use telnet in conjunction with socat
+    logger.debug('Add a console port')
+    run(['VBoxManage', 'modifyvm', vmname,
+         '--uart1', '0x3f8', '4', '--uartmode1', 'tcpserver',
+         str(CONSOLE_PORT)])
+
+    logger.debug('Add an aux port')
+    run(['VBoxManage', 'modifyvm', vmname,
+         '--uart2', '0x2f8', '3', '--uartmode2', 'tcpserver',
+         str(AUX_PORT)])
+
+    # Option 3: Connect via telnet
+    # VBoxManage modifyvm $VMNAME --uart1 0x3f8 4 --uartmode1 tcpserver 6000
+    # VBoxManage modifyvm $VMNAME --uart2 0x2f8 3 --uartmode2 tcpserver 6001
+
+    # Setup storage
+    logger.debug('Create a HDD')
+    vdi = os.path.join(box_dir, vmname + '.vdi')
+    run(['VBoxManage', 'createhd', '--filename', vdi, '--size', '46080'])
+
+    logger.debug('Add IDE Controller')
+    run(['VBoxManage', 'storagectl', vmname,
+         '--name', 'IDE_Controller', '--add', 'ide'])
+
+    logger.debug('Attach HDD')
+    run(['VBoxManage', 'storageattach', vmname,
+         '--storagectl', 'IDE_Controller', '--port', '0', '--device', '0',
+         '--type', 'hdd', '--medium', vdi])
+
+    logger.debug('VM HD info: ')
+    run(['VBoxManage', 'showhdinfo', vdi])
+
+    logger.debug('Add DVD drive')
+    run(['VBoxManage', 'storageattach', vmname, '--storagectl', 'IDE_Controller', '--port', '1', '--device', '0', '--type', 'dvddrive', '--medium', input_iso])
+
+    # Change boot order to hd then dvd
+    logger.debug('Boot order disk first')
+    run(['VBoxManage', 'modifyvm', vmname, '--boot1', 'disk'])
+
+    logger.debug('Boot order DVD second')
+    run(['VBoxManage', 'modifyvm', vmname, '--boot2', 'dvd'])
+
+    return vbox
+
+def launch_and_configure_vbox_vm(vmname, box_dir, verbose, pause_to_debug):
+    """Start the VM, add XR and Linux configs, and power it off when done."""
+    # Start the VM for installation of ISO - must be started as a sub process
+    logger.debug('Starting VM...')
+    start_process(['VBoxHeadless', '--startvm', vmname])
+
+    elapsed_time = 0
+    while True:
+        vms_list_running = run(['VBoxManage', 'list', 'runningvms'])
+        if re.search('"' + vmname + '"', vms_list_running):
+            logger.debug('Successfully started to boot VM disk image')
+            break
+        elif elapsed_time < 600:
+            logger.warning("VM is not yet running after %d seconds; "
+                           "sleep 5 seconds and retry", elapsed_time)
+            time.sleep(5)
+            elapsed_time = elapsed_time + 5
+            continue
+        else:
+            # Dump verbose output in case it helps...
+            run(['VBoxManage', 'showvminfo', vmname])
+            raise AbortScriptException(
+                "VM still not running after {0} seconds!"
+                .format(elapsed_time))
+
+    # Configure IOS XR and IOS XR Linux
+    configure_xr(verbose)
+
+    # Good place to stop and take a look if --debug was entered
+    if pause_to_debug:
+        pause_to_debug()
+
+    # Power off but do not delete the VM
+    cleanup_vmname(vmname)
+
+    # Disable uart before exporting
+    logger.debug('Remove serial uarts before exporting')
+    run(['VBoxManage', 'modifyvm', vmname, '--uart1', 'off'])
+    run(['VBoxManage', 'modifyvm', vmname, '--uart2', 'off'])
+
+    # Shrink the VM
+    logger.debug('Compact VDI')
+    vdi = os.path.join(box_dir, vmname + '.vdi')
+    run(['VBoxManage', 'modifymedium', '--compact', vdi])
+
+
+def vbox_to_vagrant(vmname, box_dir):
+    """Package the VirtualBox .vbox into a Vagrant .box."""
+    box_out = os.path.join(box_dir, vmname + '.box')
+    # Delete existing Box
+    if os.path.exists(box_out):
+        os.remove(box_out)
+        logger.debug('Found and deleted previous %s', box_out)
+
+    logger.info("Generating Vagrant VirtualBox")
+
+    # Add in embedded Vagrantfile
+    pathname = os.path.abspath(os.path.dirname(sys.argv[0]))
+    vagrantfile_pathname = os.path.join(
+        pathname, 'include', 'embedded_vagrantfile')
+
+    run(['vagrant', 'package', '--base', vmname,
+         '--vagrantfile', vagrantfile_pathname, '--output', box_out])
+
+    # Delete existing temporary file
+    box_tmp = os.path.join(box_dir, vmname)
+    if os.path.exists(box_tmp):
+        os.remove(box_tmp)
+        logger.debug('Found and deleted previous %s', box_tmp)
+
+    logger.info("Adding metadata.json to final box")
+    run(['gunzip', '--force', '-S', '.box', box_out])
+    with tarfile.open(box_tmp, 'a') as tarf:
+        tarf.add("./metadata.json")
+    run(['gzip', '--force', '-S', '.box', box_tmp])
+    os.remove(box_tmp)
+
+    logger.info('Created: %s', box_out)
+    return box_out
+
+
+def vbox_to_ova(vmname, box_dir):
+    """Export the VirtualBox VM to OVA format."""
+    ova_out = os.path.join(box_dir, vmname + '.ova')
+
+    # Delete existing OVA
+    if os.path.exists(ova_out) and create_ova is True:
+        os.remove(ova_out)
+        logger.debug('Found and deleted previous %s', ova_out)
+
+    logger.info('Creating OVA %s', ova_out)
+    run(['VBoxManage', 'export', vmname, '--output', ova_out])
+    logger.debug('Created OVA %s', ova_out)
+
+
+def main(argv):
+    input_iso = ''
+    create_ova = False
+
+    args = parse_args()
 
     # Handle Input ISO (Local or URI)
     if re.search(':/', args.ISO_FILE):
@@ -429,220 +674,29 @@ def main(argv):
     else:
         sys.exit('%s is neither a mini nor a full image. Abort' % input_iso)
 
-    logger.info('Creating Vagrant VirtualBox')
-
-    version = run(['VBoxManage', '-v'])
-    logger.debug('Virtual Box Manager Version: %s', version)
-
     # Set up paths
     base_dir = os.path.join(os.getcwd(), 'machines')
-    box_dir = os.path.join(base_dir, vmname)
-    vbox = os.path.join(box_dir, vmname + '.vbox')
-    vdi = os.path.join(box_dir, vmname + '.vdi')
-    box_out = os.path.join(box_dir, vmname + '.box')
-    box_tmp = os.path.join(box_dir, vmname)
     ova_out = os.path.join(box_dir, vmname + '.ova')
-    pathname = os.path.abspath(os.path.dirname(sys.argv[0]))
 
-    logger.debug('pathname: %s', pathname)
     logger.debug('VM Name:  %s', vmname)
     logger.debug('base_dir: %s', base_dir)
-    logger.debug('box_dir:  %s', box_dir)
-    logger.debug('box_out:  %s', box_out)
-    logger.debug('box_tmp:  %s', box_tmp)
     logger.debug('vbox:     %s', vbox)
 
-    if not os.path.exists(base_dir):
-        os.makedirs(base_dir)
+    vbox = create_vbox_vm(vmname, base_dir, input_iso)
 
-    if not os.path.exists(box_dir):
-        os.makedirs(box_dir)
+    box_dir = os.path.dirname(vbox)
 
-    # Delete existing Box
-    if os.path.exists(box_out):
-        os.remove(box_out)
-        logger.debug('Found and deleted previous %s', box_out)
+    try:
+        launch_and_configure_vbox_vm(vmname, box_dir, args.verbose, args.debug)
 
-    # Delete existing temporary file
-    if os.path.exists(box_tmp):
-        os.remove(box_tmp)
-        logger.debug('Found and deleted previous %s', box_tmp)
+        box_out = vbox_to_vagrant(vmname, box_dir)
 
-    # Delete existing OVA
-    if os.path.exists(ova_out) and create_ova is True:
-        os.remove(ova_out)
-        logger.debug('Found and deleted previous %s', ova_out)
-
-    # Clean up existing vm's
-    cleanup_vmname(vmname, vbox)
-
-    # Remove stale SSH entry
-    logger.debug('Removing stale SSH entries')
-    run(['ssh-keygen', '-R', '[localhost]:2222'])
-    run(['ssh-keygen', '-R', '[localhost]:2223'])
-
-    # Create and register a new VirtualBox VM
-    logger.debug('Create VM')
-    run(['VBoxManage', 'createvm', '--name', vmname, '--ostype', 'Linux26_64', '--basefolder', base_dir])
-
-    logger.debug('Register VM')
-    run(['VBoxManage', 'registervm', vbox])
-
-    # Setup memory, display, cpus etc
-    logger.debug('VRAM 12')
-    run(['VBoxManage', 'modifyvm', vmname, '--vram', '12'])
-
-    logger.debug('Add ACPI')
-    run(['VBoxManage', 'modifyvm', vmname, '--memory', str(ram), '--acpi', 'on'])
-
-    logger.debug('Add two CPUs')
-    run(['VBoxManage', 'modifyvm', vmname, '--cpus', '2'])
-
-    # Setup networking - including ssh
-    logger.debug('Create eight NICs')
-    run(['VBoxManage', 'modifyvm', vmname, '--nic1', 'nat', '--nictype1', 'virtio'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic2', 'nat', '--nictype2', 'virtio'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic3', 'nat', '--nictype3', 'virtio'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic4', 'nat', '--nictype4', 'virtio'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic5', 'nat', '--nictype5', 'virtio'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic6', 'nat', '--nictype6', 'virtio'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic7', 'nat', '--nictype7', 'virtio'])
-    run(['VBoxManage', 'modifyvm', vmname, '--nic8', 'nat', '--nictype8', 'virtio'])
-
-    # Add Serial ports
-    #
-    # 1. what kind of serial port the virtual machine should see by selecting
-    # an I/O base
-    # address and interrupt (IRQ). For these, we recommend to use the
-    # traditional values, which are:
-    # a) COM1: I/O base 0x3F8, IRQ 4
-    # b) COM2: I/O base 0x2F8, IRQ 3
-    # c) COM3: I/O base 0x3E8, IRQ 4
-    # d) COM4: I/O base 0x2E8, IRQ 3
-    # [--uartmode<1-N> disconnected|
-    #  server <pipe>|
-    #  client <pipe>|
-    #  tcpserver <port>|
-    #  tcpclient <hostname:port>|
-    #  file <file>|
-    #  <devicename>]
-
-    # Option 1: Output to a simple file: 'tail -f /tmp/serial' (no file?)
-    # VBoxManage modifyvm $VMNAME --uart1 0x3f8 4 --uartmode1 file /tmp/serial1
-
-    # Option 2: Connect via socat as telnet has double echo issue)
-    # But can still use telnet in conjunction with socat
-    logger.debug('Add a console port')
-    run(['VBoxManage', 'modifyvm', vmname, '--uart1', '0x3f8', '4', '--uartmode1', 'tcpserver', str(CONSOLE_PORT)])
-
-    logger.debug('Add an aux port')
-    run(['VBoxManage', 'modifyvm', vmname, '--uart2', '0x2f8', '3', '--uartmode2', 'tcpserver', str(AUX_PORT)])
-
-    # Option 3: Connect via telnet
-    # VBoxManage modifyvm $VMNAME --uart1 0x3f8 4 --uartmode1 tcpserver 6000
-    # VBoxManage modifyvm $VMNAME --uart2 0x2f8 3 --uartmode2 tcpserver 6001
-
-    # Setup storage
-    logger.debug('Create a HDD')
-    run(['VBoxManage', 'createhd', '--filename', vdi, '--size', '46080'])
-
-    logger.debug('Add IDE Controller')
-    run(['VBoxManage', 'storagectl', vmname, '--name', 'IDE_Controller', '--add', 'ide'])
-
-    logger.debug('Attach HDD')
-    run(['VBoxManage', 'storageattach', vmname, '--storagectl', 'IDE_Controller', '--port', '0', '--device', '0', '--type', 'hdd', '--medium', vdi])
-
-    logger.debug('VM HD info: ')
-    run(['VBoxManage', 'showhdinfo', vdi])
-
-    logger.debug('Add DVD drive')
-    run(['VBoxManage', 'storageattach', vmname, '--storagectl', 'IDE_Controller', '--port', '1', '--device', '0', '--type', 'dvddrive', '--medium', input_iso])
-
-    # Change boot order to hd then dvd
-    logger.debug('Boot order disk first')
-    run(['VBoxManage', 'modifyvm', vmname, '--boot1', 'disk'])
-
-    logger.debug('Boot order DVD second')
-    run(['VBoxManage', 'modifyvm', vmname, '--boot2', 'dvd'])
-
-    # Start the VM for installation of ISO - must be started as a sub process
-    logger.debug('Starting VM...')
-    start_process(['VBoxHeadless', '--startvm', vmname])
-
-    elapsed_time = 0
-    while True:
-        vms_list_running = run(['VBoxManage', 'list', 'runningvms'])
-        if re.search('"' + vmname + '"', vms_list_running):
-            logger.debug('Successfully started to boot VM disk image')
-            break
-        elif elapsed_time < 600:
-            logger.warning("VM is not yet running after %d seconds; "
-                           "sleep 5 seconds and retry", elapsed_time)
-            time.sleep(5)
-            elapsed_time = elapsed_time + 5
-            continue
-        else:
-            # Dump verbose output in case it helps...
-            run(['VBoxManage', 'showvminfo', vmname])
-            # TODO: cleanup gracefully
-            sys.exit("VM still not running after {0} seconds!"
-                     .format(elapsed_time))
-
-
-    # Configure IOS XR and IOS XR Linux
-    configure_xr(args.verbose)
-
-    # Good place to stop and take a look if --debug was entered
-    if args.debug:
-        pause_to_debug()
-
-    logger.info('Powering down and generating Vagrant VirtualBox')
-
-    # Powerdown VM prior to exporting
-    logger.debug('Waiting for machine to shutdown')
-    run(['VBoxManage', 'controlvm', vmname, 'poweroff'])
-
-    while True:
-        vms_list_running = run(['VBoxManage', 'list', 'runningvms'])
-        if re.search('"' + vmname + '"', vms_list_running):
-            logger.debug('Still shutting down')
-            continue
-        else:
-            logger.debug('Successfully shut down')
-            break
-
-    # Disable uart before exporting
-    logger.debug('Remove serial uarts before exporting')
-    run(['VBoxManage', 'modifyvm', vmname, '--uart1', 'off'])
-    run(['VBoxManage', 'modifyvm', vmname, '--uart2', 'off'])
-
-    # Shrink the VM
-    logger.debug('Compact VDI')
-    run(['VBoxManage', 'modifymedium', '--compact', vdi])
-
-    logger.debug('Building Virtualbox')
-
-    # Add in embedded Vagrantfile
-    vagrantfile_pathname = os.path.join(pathname, 'include', 'embedded_vagrantfile')
-
-    run(['vagrant', 'package', '--base', vmname,
-         '--vagrantfile', vagrantfile_pathname, '--output', box_out])
-    logger.info("Adding metadata.json to final box")
-    run(['gunzip', '--force', '-S', '.box', box_out])
-    with tarfile.open(box_tmp, 'a') as tarf:
-        tarf.add("./metadata.json")
-    run(['gzip', '--force', '-S', '.box', box_tmp])
-
-    logger.info('Created: %s', box_out)
-
-    # Create OVA
-    if create_ova is True:
-        logger.info('Creating OVA %s', ova_out)
-        run(['VBoxManage', 'export', vmname, '--output', ova_out])
-        logger.debug('Created OVA %s', ova_out)
-
-    # Clean up VM used to generate box
-    cleanup_vmname(vmname, vbox)
+        # Create OVA
+        if create_ova is True:
+            vbox_to_ova(vmname, box_dir)
+    finally:
+        # Attempt to clean up after ourselves even if something went wrong
+        cleanup_vmname(vmname, vbox)
 
     # Run basic sanity tests unless -s
     if not args.skip_test:
