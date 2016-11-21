@@ -125,7 +125,7 @@ def run(cmd, hide_error=False, cont_on_error=False):
 
 def cleanup_vmname(vmname, vbox=None):
     """Power off the given virtualbox VM.
-    
+
     If the vbox name is specified, also unregister (delete) it.
     """
     # Power off VM if it is running
@@ -184,7 +184,7 @@ def start_process(args):
     time.sleep(2)
 
 
-def configure_xr(argv):
+def configure_xr(verbosity):
     '''
     Bring up XR and do some initial config.
     Using socat to do the connection as telnet has an
@@ -221,7 +221,7 @@ def configure_xr(argv):
     try:
         child = pexpect.spawn("socat TCP:%s:%s -,raw,echo=0,escape=0x1d" % (localhost, CONSOLE_PORT))
 
-        if argv == logging.DEBUG:
+        if verbosity == logging.DEBUG:
             child.logfile = sys.stdout
 
         child.timeout = 600  # Long time for full configuration, waiting for ip address etc
@@ -423,6 +423,18 @@ def create_vbox_vm(vmname, base_dir, input_iso):
     """Create and configure (but do not start) the VirtualBox VM."""
     logger.info('Creating and configuring VirtualBox VM')
 
+    # Set the RAM according to mini of full ISO
+    if 'mini' in input_iso:
+        ram = 3072
+        logger.debug('%s is a mini image, RAM allocated is %s MB',
+                     input_iso, ram)
+    elif 'full' in input_iso:
+        ram = 4096
+        logger.debug('%s is a full image, RAM allocated is %s MB',
+                     input_iso, ram)
+    else:
+        sys.exit('%s is neither a mini nor a full image. Abort' % input_iso)
+
     version = run(['VBoxManage', '-v'])
     logger.debug('Virtual Box Manager Version: %s', version)
 
@@ -612,7 +624,7 @@ def vbox_to_vagrant(vmname, box_dir):
     with tarfile.open(box_tmp, 'a') as tarf:
         tarf.add("./metadata.json")
     run(['gzip', '--force', '-S', '.box', box_tmp])
-    os.remove(box_tmp)
+    # gzip automatically cleans up - no need for os.remove(box_tmp)
 
     logger.info('Created: %s', box_out)
     return box_out
@@ -623,7 +635,7 @@ def vbox_to_ova(vmname, box_dir):
     ova_out = os.path.join(box_dir, vmname + '.ova')
 
     # Delete existing OVA
-    if os.path.exists(ova_out) and create_ova is True:
+    if os.path.exists(ova_out):
         os.remove(ova_out)
         logger.debug('Found and deleted previous %s', ova_out)
 
@@ -632,7 +644,8 @@ def vbox_to_ova(vmname, box_dir):
     logger.debug('Created OVA %s', ova_out)
 
 
-def main(argv):
+def main():
+    """Main function."""
     input_iso = ''
     create_ova = False
 
@@ -662,25 +675,12 @@ def main(argv):
     set_logging()
     logger.setLevel(level=args.verbose)
 
-    logger.debug('Input ISO is %s', input_iso)
-
-    # Set the RAM according to mini of full ISO
-    if 'mini' in input_iso:
-        ram = 3072
-        logger.debug('%s is a mini image, RAM allocated is %s MB', input_iso, ram)
-    elif 'full' in input_iso:
-        ram = 4096
-        logger.debug('%s is a full image, RAM allocated is %s MB', input_iso, ram)
-    else:
-        sys.exit('%s is neither a mini nor a full image. Abort' % input_iso)
-
     # Set up paths
     base_dir = os.path.join(os.getcwd(), 'machines')
-    ova_out = os.path.join(box_dir, vmname + '.ova')
 
+    logger.debug('Input ISO is %s', input_iso)
     logger.debug('VM Name:  %s', vmname)
     logger.debug('base_dir: %s', base_dir)
-    logger.debug('vbox:     %s', vbox)
 
     vbox = create_vbox_vm(vmname, base_dir, input_iso)
 
@@ -702,15 +702,11 @@ def main(argv):
     if not args.skip_test:
         logger.info('Running basic unit tests on Vagrant VirtualBox...')
 
-        if args.verbose == logging.DEBUG:
-            verbose_str = '-v'
-        else:
-            # Shhhh...
-            verbose_str = ''
+        # hackety hack hack hack...
+        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-        iosxr_test_path = os.path.join(pathname, 'iosxr_test.py')
-        cmd_string = "python %s %s %s" % (iosxr_test_path, box_out, verbose_str)
-        subprocess.check_output(cmd_string, shell=True)
+        from iosxr_test import main as test_main
+        test_main(box_out, args.verbose)
 
     logger.info('Single node use:')
     logger.info(" vagrant init 'IOS XRv'")
@@ -725,15 +721,6 @@ def main(argv):
 
     logger.info('Note that both the XR Console and the XR linux shell username and password is vagrant/vagrant')
 
-    # Clean up default test VM
-    if not args.skip_test:
-        run(['vagrant', 'destroy', '--force'], cont_on_error=True)
-
-    # Clean up Vagrantfile
-    try:
-        os.remove('Vagrantfile')
-    except OSError:
-        pass
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main()
