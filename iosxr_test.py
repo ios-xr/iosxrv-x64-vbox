@@ -15,13 +15,12 @@ python iosxr_test.py iosxrv-fullk9-x64.box
 '''
 
 from __future__ import print_function
-import sys
 import pexpect
 from pexpect import pxssh
 import subprocess
 import argparse
 import os
-from iosxr_iso2vbox import set_logging, run
+from iosxr_iso2vbox import set_logging, run, AbortScriptException
 import logging
 
 logger = logging.getLogger(__name__)
@@ -234,12 +233,20 @@ def test_xr():
         logger.debug("Vagrant SSH to XR Console is sane")
         return True
 
+def cleanup_vagrant():
+    """Clean up after ourselves."""
+    logger.info("Cleaning up...")
 
-def main():
-    # Get virtualbox
-    global input_box
-    global verbose
+    run(['vagrant', 'destroy', '--force'], cont_on_error=True)
 
+    # Clean up Vagrantfile
+    try:
+        os.remove('Vagrantfile')
+    except OSError:
+        pass
+
+def parse_args():
+    """Parse the CLI arguments."""
     parser = argparse.ArgumentParser(description='Run basic unit-test on a Vagrant VirtualBox')
     parser.add_argument('BOX_FILE',
                         help='local Vagrant VirtualBox filename')
@@ -247,31 +254,47 @@ def main():
                         action='store_const', const=logging.DEBUG,
                         default=logging.INFO, help='turn on verbose messages')
 
-    args = parser.parse_args()
-    verbose = args.verbose
+    return parser.parse_args()
 
-    input_box = args.BOX_FILE
-    if not os.path.exists(input_box):
-        sys.exit(input_box, 'does not exist')
 
-    logger.setLevel(level=args.verbose)
+def main(vbox=None, verbosity=logging.INFO):
+    """Main test function."""
+    # Get virtualbox
+    global input_box
+    global verbose
 
-    # Bring the newly generated virtualbox up
-    bringup_vagrant()
+    if vbox is None:
+        args = parse_args()
+        verbose = args.verbose
 
-    # Test IOS XR Linux
-    result_linux = test_linux()
-
-    # Test IOS XR Console
-    result_xr = test_xr()
-
-    logger.debug('result_linux=%s, result_xr=%s' % (result_linux, result_xr))
-
-    if not (result_linux and result_xr):
-        sys.exit('Failed basic test, box is not sane')
+        input_box = args.BOX_FILE
     else:
+        input_box = vbox
+        verbose = verbosity
+
+    if not os.path.exists(input_box):
+        raise AbortScriptException('%s does not exist' % input_box)
+
+    logger.setLevel(level=verbose)
+
+    try:
+        # Bring the newly generated virtualbox up
+        bringup_vagrant()
+
+        # Test IOS XR Linux
+        result_linux = test_linux()
+
+        # Test IOS XR Console
+        result_xr = test_xr()
+
+        logger.debug('result_linux=%s, result_xr=%s' % (result_linux, result_xr))
+
+        if not (result_linux and result_xr):
+            raise AbortScriptException('Failed basic test, box is not sane')
+
         logger.info('Both IOS XR and IOS Linux test suites passed')
-        return
+    finally:
+        cleanup_vagrant()
 
 if __name__ == "__main__":
     main()
