@@ -74,6 +74,10 @@ import tarfile
 CONSOLE_PORT = 65000
 AUX_PORT = 65001
 
+# General-purpose retry interval and timeout value (10 minutes)
+RETRY_INTERVAL = 5
+TIMEOUT = 600
+
 logger = logging.getLogger(__name__)
 
 
@@ -87,6 +91,7 @@ def set_logging():
 
 class AbortScriptException(Exception):
     """Abort the script and clean up before exiting."""
+
 
 def run(cmd, hide_error=False, cont_on_error=False):
     '''
@@ -142,11 +147,12 @@ def cleanup_vmname(vmname, vbox=None):
             if not re.search('"' + vmname + '"', vms_list_running):
                 logger.debug('Successfully shut down')
                 break
-            elif elapsed_time < 600:
+            elif elapsed_time < TIMEOUT:
                 logger.warning("VM is not yet stopped after %d seconds; "
-                               "sleep 5 seconds and retry", elapsed_time)
-                time.sleep(5)
-                elapsed_time = elapsed_time + 5
+                               "sleep %d seconds and retry", elapsed_time,
+                               RETRY_INTERVAL)
+                time.sleep(RETRY_INTERVAL)
+                elapsed_time = elapsed_time + RETRY_INTERVAL
                 continue
             else:
                 # Dump verbose output in case it helps...
@@ -164,6 +170,7 @@ def cleanup_vmname(vmname, vbox=None):
 
 
 def pause_to_debug():
+    """Pause the script for manual debugging of the VM before continuing."""
     print("Pause before debug")
     print("Use: 'socat TCP:localhost:65000 -,raw,echo=0,escape=0x1d' to access the VM")
     raw_input("Press Enter to continue.")
@@ -185,32 +192,33 @@ def start_process(args):
 
 
 def configure_xr(verbosity):
-    '''
-    Bring up XR and do some initial config.
-    Using socat to do the connection as telnet has an
-    odd double return on vbox
-    '''
+    """Bring up XR and do some initial config.
+
+    Uses socat to do the connection as telnet has an
+    odd double return on vbox.
+    """
     logger.info('Logging into Vagrant Virtualbox and configuring IOS XR')
 
     localhost = 'localhost'
     prompt = r"[$#]"
 
     def xr_cli_wait_for_output(command, pattern):
-        '''
-        Execute a XR CLI command and try to find a pattern.
-        Try up to five times them register an error.
-        Each retry has a 5s turn around.
-        '''
+        """Execute a XR CLI command and try to find a pattern.
+
+        Try up to five times, waiting RETRY_INTERVAL between each try,
+        then register an error.
+        """
         total = 5
         found_match = False
 
         for attempt in range(total):
             try:
-                logger.debug("Looking for '%s' in output of '%s'" % (pattern, command))
+                logger.debug("Looking for '%s' in output of '%s'",
+                             pattern, command)
                 child.sendline(command)
-                child.expect(pattern, 5)
+                child.expect(pattern, RETRY_INTERVAL)
                 found_match = True
-                logger.debug("Found '%s' in '%s'" % (pattern, command))
+                logger.debug("Found '%s' in '%s'", pattern, command)
                 break
             except pexpect.TIMEOUT:
                 logger.debug("Iteration '%s' out of '%s'", (attempt + 1), total)
@@ -219,12 +227,14 @@ def configure_xr(verbosity):
             raise Exception("No '%s' in '%s'" % (pattern, command))
 
     try:
-        child = pexpect.spawn("socat TCP:%s:%s -,raw,echo=0,escape=0x1d" % (localhost, CONSOLE_PORT))
+        child = pexpect.spawn("socat TCP:%s:%s -,raw,echo=0,escape=0x1d" %
+                              (localhost, CONSOLE_PORT))
 
         if verbosity == logging.DEBUG:
             child.logfile = sys.stdout
 
-        child.timeout = 600  # Long time for full configuration, waiting for ip address etc
+        # Need to wait a while for full configuration, IP address, etc.
+        child.timeout = TIMEOUT
 
         # Setup username and password and log in
         child.expect('Press RETURN to get started.', child.timeout)
@@ -561,11 +571,12 @@ def launch_and_configure_vbox_vm(vmname, box_dir, verbose, pause_to_debug):
         if re.search('"' + vmname + '"', vms_list_running):
             logger.debug('Successfully started to boot VM disk image')
             break
-        elif elapsed_time < 600:
+        elif elapsed_time < TIMEOUT:
             logger.warning("VM is not yet running after %d seconds; "
-                           "sleep 5 seconds and retry", elapsed_time)
-            time.sleep(5)
-            elapsed_time = elapsed_time + 5
+                           "sleep %d seconds and retry", elapsed_time,
+                           RETRY_INTERVAL)
+            time.sleep(RETRY_INTERVAL)
+            elapsed_time = elapsed_time + RETRY_INTERVAL
             continue
         else:
             # Dump verbose output in case it helps...
