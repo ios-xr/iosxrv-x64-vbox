@@ -68,6 +68,7 @@ from argparse import RawDescriptionHelpFormatter
 import re
 import logging
 import pexpect
+import tarfile
 
 # Telnet ports used to access IOS XR via socat
 CONSOLE_PORT = 65000
@@ -124,13 +125,13 @@ def cleanup_vmname(name, box_name):
     '''
     # Power off VM if it is running
     vms_list_running = run(['VBoxManage', 'list', 'runningvms'])
-    if name in vms_list_running:
+    if re.search('"' + name + '"', vms_list_running):
         logger.debug("'%s' is running, powering off...", name)
         run(['VBoxManage', 'controlvm', name, 'poweroff'])
 
     # Unregister and delete
     vms_list = run(['VBoxManage', 'list', 'vms'])
-    if name in vms_list:
+    if re.search('"' + name + '"', vms_list):
         logger.debug("'%s' is registered, unregistering and deleting", name)
         run(['VBoxManage', 'unregistervm', box_name, '--delete'])
 
@@ -227,6 +228,10 @@ def configure_xr(argv):
         child.sendline("run touch /disk0:/ztp/state/state_is_complete")
         child.expect(prompt)
         child.sendline("ztp terminate noprompt")
+        child.expect(prompt)
+
+        # Get the image build information
+        child.sendline("show version")
         child.expect(prompt)
 
         # Determine if the image is a crypto/k9 image or not
@@ -435,6 +440,7 @@ def main(argv):
     vbox = os.path.join(box_dir, vmname + '.vbox')
     vdi = os.path.join(box_dir, vmname + '.vdi')
     box_out = os.path.join(box_dir, vmname + '.box')
+    box_tmp = os.path.join(box_dir, vmname)
     ova_out = os.path.join(box_dir, vmname + '.ova')
     pathname = os.path.abspath(os.path.dirname(sys.argv[0]))
 
@@ -443,6 +449,7 @@ def main(argv):
     logger.debug('base_dir: %s', base_dir)
     logger.debug('box_dir:  %s', box_dir)
     logger.debug('box_out:  %s', box_out)
+    logger.debug('box_tmp:  %s', box_tmp)
     logger.debug('vbox:     %s', vbox)
 
     if not os.path.exists(base_dir):
@@ -455,6 +462,11 @@ def main(argv):
     if os.path.exists(box_out):
         os.remove(box_out)
         logger.debug('Found and deleted previous %s', box_out)
+
+    # Delete existing temporary file
+    if os.path.exists(box_tmp):
+        os.remove(box_tmp)
+        logger.debug('Found and deleted previous %s', box_tmp)
 
     # Delete existing OVA
     if os.path.exists(ova_out) and create_ova is True:
@@ -603,7 +615,14 @@ def main(argv):
     # Add in embedded Vagrantfile
     vagrantfile_pathname = os.path.join(pathname, 'include', 'embedded_vagrantfile')
 
-    run(['vagrant', 'package', '--base', vmname, '--vagrantfile', vagrantfile_pathname, '--output', box_out])
+    run(['vagrant', 'package', '--base', vmname,
+         '--vagrantfile', vagrantfile_pathname, '--output', box_out])
+    logger.info("Adding metadata.json to final box")
+    run(['gunzip', '--force', '-S', '.box', box_out])
+    with tarfile.open(box_tmp, 'a') as tarf:
+        tarf.add("./metadata.json")
+    run(['gzip', '--force', '-S', '.box', box_tmp])
+
     logger.info('Created: %s', box_out)
 
     # Create OVA
