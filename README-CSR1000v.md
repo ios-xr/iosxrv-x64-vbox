@@ -4,7 +4,7 @@
 
 It can then be used as a *box* within Vagrant to bring up an IOS XE router that is fully configured to be used with NETCONF and RESTCONF.
 
-`vagrant ssh` provides access to the IOS XE management interface with Internet access via the host. It includes and uses the insecure Vagrant SSH key to provide 'passwordless' authentication.
+`vagrant ssh` provides access to the IOS XE management interface with Internet access of IOS XE via the host. It includes and uses the insecure Vagrant SSH key to provide 'passwordless' authentication.
 
 ## Origin
 For information about additional requirements and dependencies see the master [README.rst](README.rst) file. 
@@ -19,10 +19,10 @@ All contributions under this project are done so under the BSD license detailed 
 1. *git clone* this repo:
 
 		git clone https://github.com/ios-xr/iosxrv-x64-vbox.git
-		
+
 2. Install VirtualBox, Vagrant and socat (see [README.rst](README.rst) for more detail).
 3. Download the appropriate ISO file, e.g. `csr1000v-universalk9.16.03.01.iso` from CCO (software image download requires a login with proper access rights)
-4. Generate the (VirtualBox-flavored) Vagrant box. Call the script and provide the path to the CSR1kv ISO file. The rest is done automatically. The script has instructions printed when it is done. 
+4. Generate the (VirtualBox-flavored) Vagrant box by calling the script and provide the path to the CSR1kv ISO file. The rest is done automatically. The script has instructions printed when it is done. 
 
 		./iosxe_iso2vbox.py csr1000v-universalk9.16.03.01.iso
 5. There are a couple of command line options that can be applied. Their purpose is mainly for troubleshooting by increasing the verbosity of the output.
@@ -67,9 +67,7 @@ As a result of the build script, a *box* file is created. The path to that file 
 5. Login to the router using `vagrant ssh`
 
 > **Note:** This is not the serial console. The serial console is **not** exposed. A serial port can be added in the Vagrantfile that adds a serial port. See the build-script for an example. 
-
-&nbsp;
-
+> 
 > **Note:** The resulting Vagrant box has only ONE interface. If additional interfaces are required then those must be added in the actual Vagrantfile within the directory where the box has been deployed. If multiple routers should be deployed which are connected to each other than the XR `vagrantfiles` directory has additional examples which can be adapted for use with IOS XE.
  
 ## Sample Output
@@ -212,7 +210,8 @@ And then SSH to the box (note that the password is 'vagrant':
 	<capability>urn:ietf:params:netconf:capability:writable-running:1.0</capability>
 	<capability>urn:ietf:params:netconf:capability:xpath:1.0</capability>
 	[...]
-	Note: The SSH server for NETCONF is different from the SSH server of the IOS device and hence does not know the Vagrant insecure SSH key (e.g. the pub key has not been 'accepted' into the SSH daemon / authorized_keys). We have to use password authentication in this case unless there is a way to inject the SSH pub key into the NETCONF agent.
+
+> **Note:** The SSH server for NETCONF is different from the SSH server of the IOS device and hence does not know the Vagrant insecure SSH key (e.g. the pub key has not been 'accepted' into the SSH daemon / authorized_keys). We have to use password authentication in this case unless there is a way to inject the SSH pub key into the NETCONF agent.
 
 ### Using RESTCONF
 Again, using vagrant port determine the port where the RESTCONF agent is listening on (see above for the example used). The RESTCONF API entry point is at `/restconf/api`:

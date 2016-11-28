@@ -232,22 +232,31 @@ def configure_xe(verbose=False, wait=True):
     localhost = 'localhost'
 
     PROMPT = r'[\w-]+(\([\w-]+\))?[#>]'
+    # don't want to rely on specific hostname
+    # PROMPT = r'(Router|csr1kv).*[#>]'
     CRLF = "\r\n"
 
     def send_line(line=CRLF):
-        # empty line is len 2 b/c of CR/LF
+        child.sendline(line)
         if line != CRLF:
             logger.info('IOS Config: %s' % line)
-        child.sendline(line)
+            child.expect(re.escape(line))
+
+    def send_cmd(cmd):
+        if not isinstance(cmd, list):
+            cmd = list((cmd,))
+        for c in cmd:
+            send_line(c)
         child.expect(PROMPT)
 
     try:
-        child = pexpect.spawn(
-            "socat TCP:%s:%s -,raw,echo=0,escape=0x1d" % (localhost, CONSOLE_PORT))
+        child = pexpect.spawn("socat TCP:%s:%s -,raw,echo=0,escape=0x1d" % (localhost, CONSOLE_PORT))
 
         if verbose:
             child.logfile = open("tmp.log", "w")
-        child.timeout = 600  # Long time for full configuration, waiting for ip address etc
+
+        # Long time for full configuration, waiting for ip address etc
+        child.timeout = 600
 
         # wait for indication that boot has gone through
         if (wait):
@@ -258,93 +267,91 @@ def configure_xe(verbose=False, wait=True):
         send_line()
         time.sleep(5)
         send_line()
-        send_line("term width 300")
+        send_cmd("term width 300")
 
         # enable plus config mode
-        send_line("enable")
-        send_line("conf t")
+        send_cmd("enable")
+        send_cmd("conf t")
 
         # no TFTP config
-        send_line("no logging console")
+        send_cmd("no logging console")
         time.sleep(5)
-        send_line("no service config")
+        send_cmd("no service config")
 
         # NETCONF (odm == Operational Data)
-        send_line("netconf-yang cisco-odm actions parse.showACL")
-        send_line("netconf-yang cisco-odm actions parse.showBGP")
-        send_line("netconf-yang cisco-odm actions parse.showArchive")
-        send_line("netconf-yang cisco-odm actions parse.showIpRoute")
-        send_line("netconf-yang cisco-odm actions parse.showInterfaces")
-        send_line("netconf-yang cisco-odm actions parse.showEnvironment")
-        send_line("netconf-yang cisco-odm actions parse.showFlowMonitor")
-        send_line("netconf-yang cisco-odm actions parse.showBFDneighbors")
-        send_line("netconf-yang cisco-odm actions parse.showBridgeDomain")
-        send_line("netconf-yang cisco-odm actions parse.showProcessesCPU")
-        send_line("netconf-yang cisco-odm actions parse.showEfpStatistics")
-        send_line("netconf-yang cisco-odm actions parse.showLLDPneighbors")
-        send_line("netconf-yang cisco-odm actions parse.showVirtualService")
-        send_line("netconf-yang cisco-odm actions parse.showIPslaStatistics")
-        send_line("netconf-yang cisco-odm actions parse.showMPLSldpNieghbor")
-        send_line("netconf-yang cisco-odm actions parse.showProcessesMemory")
-        send_line("netconf-yang cisco-odm actions parse.showMemoryStatistics")
-        send_line("netconf-yang cisco-odm actions parse.showPlatformSoftware")
-        send_line("netconf-yang cisco-odm actions parse.showMPLSstaticBinding")
-        send_line("netconf-yang cisco-odm actions parse.showMPLSforwardingTable")
-        send_line("netconf-yang cisco-odm actions parse.showIpOspfDatabaseRouter")
-        send_line("netconf-yang cisco-odm actions parse.showEthernetCFMstatistics")
-        send_line("netconf-yang cisco-odm polling-enable")
-        send_line("netconf-yang")
+        send_cmd("netconf-yang cisco-odm actions parse.showACL")
+        send_cmd("netconf-yang cisco-odm actions parse.showBGP")
+        send_cmd("netconf-yang cisco-odm actions parse.showArchive")
+        send_cmd("netconf-yang cisco-odm actions parse.showIpRoute")
+        send_cmd("netconf-yang cisco-odm actions parse.showInterfaces")
+        send_cmd("netconf-yang cisco-odm actions parse.showEnvironment")
+        send_cmd("netconf-yang cisco-odm actions parse.showFlowMonitor")
+        send_cmd("netconf-yang cisco-odm actions parse.showBFDneighbors")
+        send_cmd("netconf-yang cisco-odm actions parse.showBridgeDomain")
+        send_cmd("netconf-yang cisco-odm actions parse.showProcessesCPU")
+        send_cmd("netconf-yang cisco-odm actions parse.showEfpStatistics")
+        send_cmd("netconf-yang cisco-odm actions parse.showLLDPneighbors")
+        send_cmd("netconf-yang cisco-odm actions parse.showVirtualService")
+        send_cmd("netconf-yang cisco-odm actions parse.showIPslaStatistics")
+        send_cmd("netconf-yang cisco-odm actions parse.showMPLSldpNieghbor")
+        send_cmd("netconf-yang cisco-odm actions parse.showProcessesMemory")
+        send_cmd("netconf-yang cisco-odm actions parse.showMemoryStatistics")
+        send_cmd("netconf-yang cisco-odm actions parse.showPlatformSoftware")
+        send_cmd("netconf-yang cisco-odm actions parse.showMPLSstaticBinding")
+        send_cmd("netconf-yang cisco-odm actions parse.showMPLSforwardingTable")
+        send_cmd("netconf-yang cisco-odm actions parse.showIpOspfDatabaseRouter")
+        send_cmd("netconf-yang cisco-odm actions parse.showEthernetCFMstatistics")
+        send_cmd("netconf-yang cisco-odm polling-enable")
+        send_cmd("netconf-yang")
         # this is not needed according to Jason
-        # send_line("netconf ssh")
+        # send_cmd("netconf ssh")
 
         # hostname / domain-name
-        send_line("hostname csr1kv")
-        send_line("ip domain-name dna.lab")
+        send_cmd("hostname csr1kv")
+        send_cmd("ip domain-name dna.lab")
 
         # key generation
-        # send_line("crypto key generate rsa modulus 2048")
+        # send_cmd("crypto key generate rsa modulus 2048")
         # time.sleep(5)
 
         # passwords and username
         send_line()
-        send_line("username vagrant priv 15 password vagrant")
-        send_line("enable password cisco")
-        send_line("enable secret cisco")
+        send_cmd("username vagrant priv 15 password vagrant")
+        send_cmd("enable password cisco")
+        send_cmd("enable secret cisco")
 
         # line configuration
-        send_line("line vty 0 4")
-        send_line("login local")
+        send_cmd("line vty 0 4")
+        send_cmd("login local")
 
         # ssh vagrant insecure public key
-        send_line("ip ssh pubkey-chain")
-        send_line("username vagrant")
-        send_line("key-string")
-        send_line("AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eW")
-        send_line("W6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o")
-        send_line("9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXP")
-        send_line("ITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pz")
-        send_line("C6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZE")
-        send_line("nDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXz")
-        send_line("cWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ==")
-        send_line("exit")
+        send_cmd("ip ssh pubkey-chain")
+        send_cmd("username vagrant")
+        send_cmd("key-string")
+        send_cmd("AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eW")
+        send_cmd("W6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o")
+        send_cmd("9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXP")
+        send_cmd("ITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pz")
+        send_cmd("C6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZE")
+        send_cmd("nDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXz")
+        send_cmd("cWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ==")
+        send_cmd("exit")
 
         # restconf
-        send_line("ip http server")
-        send_line("ip http secure-server")
-        send_line("restconf")
+        send_cmd("ip http server")
+        send_cmd("ip http secure-server")
+        send_cmd("restconf")
 
         # done and save
-        send_line("end")
-        send_line("copy run start")
-        send_line()
+        send_cmd("end")
+        send_cmd(["copy run start", CRLF])
 
         # just to be sure
         logger.warn('Waiting 10 seconds...')
         time.sleep(10)
 
     except pexpect.TIMEOUT:
-        raise pexpect.TIMEOUT(
-            'Timeout (%s) exceeded in read().' % str(child.timeout))
+        raise pexpect.TIMEOUT('Timeout (%s) exceeded in read().' % str(child.timeout))
 
 
 def main(argv):
@@ -403,8 +410,7 @@ def main(argv):
     if re.search(':/', args.ISO_FILE):
         # URI Image
         cmd_string = 'scp %s@%s .' % (getpass.getuser(), args.ISO_FILE)
-        logger.warn(
-            'Will attempt to scp the remote image to current working dir. You may be required to enter your password.')
+        logger.warn('Will attempt to scp the remote image to current working dir. You may be required to enter your password.')
         logger.debug('%s\n', cmd_string)
         subprocess.call(cmd_string, shell=True)
         input_iso = os.path.basename(args.ISO_FILE)
