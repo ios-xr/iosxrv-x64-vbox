@@ -122,8 +122,8 @@ def run(cmd, hide_error=False, cont_on_error=False):
         if not cont_on_error:
             raise AbortScriptException(
                 "Command '{0}' failed with return code {1}".format(
-                    s_cmd, output.return_code))
-        logger.debug('Continuing despite error %d', output.return_code)
+                    s_cmd, output.returncode))
+        logger.debug('Continuing despite error %d', output.returncode)
 
     return tup_output[0]
 
