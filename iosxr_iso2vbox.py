@@ -633,7 +633,7 @@ def vbox_to_vagrant(vmname, box_dir):
     logger.info("Adding metadata.json to final box")
     run(['gunzip', '--force', '-S', '.box', box_out])
     with tarfile.open(box_tmp, 'a') as tarf:
-        tarf.add("./metadata.json")
+        tarf.add(os.path.join(pathname, "metadata.json"))
     run(['gzip', '--force', '-S', '.box', box_tmp])
     # gzip automatically cleans up - no need for os.remove(box_tmp)
 
