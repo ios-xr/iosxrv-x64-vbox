@@ -85,8 +85,8 @@ def set_logging():
     '''
     Set basic logging format.
     '''
-    FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s()] %(message)s"
-    logging.basicConfig(format=FORMAT)
+    FORMAT = "[%(asctime)s.%(msecs)03d %(levelname)8s: %(funcName)20s:%(lineno)s] %(message)s"
+    logging.basicConfig(format=FORMAT, datefmt="%H:%M:%S")
 
 
 class AbortScriptException(Exception):
@@ -429,7 +429,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def create_vbox_vm(vmname, base_dir, input_iso):
+def define_vbox_vm(vmname, base_dir, input_iso):
     """Create and configure (but do not start) the VirtualBox VM."""
     logger.info('Creating and configuring VirtualBox VM')
 
@@ -559,7 +559,7 @@ def create_vbox_vm(vmname, base_dir, input_iso):
 
     return vbox
 
-def launch_and_configure_vbox_vm(vmname, box_dir, verbose, pause_to_debug):
+def live_config_vbox_vm(vmname, box_dir, verbose, pause_to_debug):
     """Start the VM, add XR and Linux configs, and power it off when done."""
     # Start the VM for installation of ISO - must be started as a sub process
     logger.debug('Starting VM...')
@@ -693,12 +693,12 @@ def main():
     logger.debug('VM Name:  %s', vmname)
     logger.debug('base_dir: %s', base_dir)
 
-    vbox = create_vbox_vm(vmname, base_dir, input_iso)
+    vbox = define_vbox_vm(vmname, base_dir, input_iso)
 
     box_dir = os.path.dirname(vbox)
 
     try:
-        launch_and_configure_vbox_vm(vmname, box_dir, args.verbose, args.debug)
+        live_config_vbox_vm(vmname, box_dir, args.verbose, args.debug)
 
         box_out = vbox_to_vagrant(vmname, box_dir)
 
