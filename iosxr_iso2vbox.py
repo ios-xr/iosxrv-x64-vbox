@@ -400,6 +400,9 @@ def configure_xr(verbosity):
 
     except pexpect.TIMEOUT:
         raise pexpect.TIMEOUT('Timeout (%s) exceeded in read().' % str(child.timeout))
+    finally:
+        logger.info("Closing socat session")
+        child.close()
 
 
 def parse_args():
@@ -493,6 +496,10 @@ def define_vbox_vm(vmname, base_dir, input_iso):
         run(['VBoxManage', 'modifyvm', vmname,
              '--nic' + str(i), 'nat', '--nictype' + str(i), 'virtio'])
 
+    # logger.debug('Enable packet capture on Mgmt NIC')
+    # run(['VBoxManage', 'modifyvm', vmname, '--nictrace1', 'on',
+    #      '--nictracefile1', os.path.join(base_dir, 'Mgmt.pcap')])
+
     # Add Serial ports
     #
     # 1. what kind of serial port the virtual machine should see by selecting
@@ -559,7 +566,7 @@ def define_vbox_vm(vmname, base_dir, input_iso):
 
     return vbox
 
-def live_config_vbox_vm(vmname, box_dir, verbose, pause_to_debug):
+def live_config_vbox_vm(vmname, box_dir, verbose, debug=False):
     """Start the VM, add XR and Linux configs, and power it off when done."""
     # Start the VM for installation of ISO - must be started as a sub process
     logger.debug('Starting VM...')
@@ -589,7 +596,7 @@ def live_config_vbox_vm(vmname, box_dir, verbose, pause_to_debug):
     configure_xr(verbose)
 
     # Good place to stop and take a look if --debug was entered
-    if pause_to_debug:
+    if debug:
         pause_to_debug()
 
     # Power off but do not delete the VM
@@ -705,6 +712,13 @@ def main():
         # Create OVA
         if create_ova is True:
             vbox_to_ova(vmname, box_dir)
+    except:
+        if args.debug:
+            print("Exception caught:")
+            print(sys.exc_info())
+            pause_to_debug()
+        # Continue with exception handling
+        raise
     finally:
         # Attempt to clean up after ourselves even if something went wrong
         cleanup_vmname(vmname, delete=True)
