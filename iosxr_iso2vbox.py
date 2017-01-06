@@ -128,10 +128,10 @@ def run(cmd, hide_error=False, cont_on_error=False):
     return tup_output[0]
 
 
-def cleanup_vmname(vmname, vbox=None):
+def cleanup_vmname(vmname, delete=False):
     """Power off the given virtualbox VM.
 
-    If the vbox name is specified, also unregister (delete) it.
+    If delete is True, also unregister and delete the VM.
     """
     # Power off VM if it is running
     vms_list_running = run(['VBoxManage', 'list', 'runningvms'])
@@ -161,12 +161,12 @@ def cleanup_vmname(vmname, vbox=None):
                     "VM still not stopped after {0} seconds!"
                     .format(elapsed_time))
 
-    if vbox:
+    if delete:
         vms_list = run(['VBoxManage', 'list', 'vms'])
         if re.search('"' + vmname + '"', vms_list):
             logger.debug("'%s' is registered, unregistering and deleting it",
                          vmname)
-            run(['VBoxManage', 'unregistervm', vbox, '--delete'])
+            run(['VBoxManage', 'unregistervm', vmname, '--delete'])
 
 
 def pause_to_debug():
@@ -461,7 +461,7 @@ def define_vbox_vm(vmname, base_dir, input_iso):
     logger.debug('vbox:     %s', vbox)
 
     # Clean up existing vm's
-    cleanup_vmname(vmname, vbox)
+    cleanup_vmname(vmname, delete=True)
 
     # Remove stale SSH entry
     logger.debug('Removing stale SSH entries')
@@ -707,7 +707,7 @@ def main():
             vbox_to_ova(vmname, box_dir)
     finally:
         # Attempt to clean up after ourselves even if something went wrong
-        cleanup_vmname(vmname, vbox)
+        cleanup_vmname(vmname, delete=True)
 
     # Run basic sanity tests unless -s
     if not args.skip_test:
