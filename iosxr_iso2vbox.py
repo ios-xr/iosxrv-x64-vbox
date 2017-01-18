@@ -199,7 +199,7 @@ def configure_xr(verbosity):
     logger.info('Logging into Vagrant Virtualbox and configuring IOS XR')
 
     localhost = 'localhost'
-    prompt = r"[$#]"
+    prompt = r"[$#]$"
 
     def xr_cli_wait_for_output(command, pattern):
         """Execute a XR CLI command and try to find a pattern.
@@ -215,12 +215,18 @@ def configure_xr(verbosity):
                 logger.debug("Looking for '%s' in output of '%s'",
                              pattern, command)
                 child.sendline(command)
-                child.expect(pattern, RETRY_INTERVAL)
-                found_match = True
-                logger.debug("Found '%s' in '%s'", pattern, command)
-                break
+                child.expect(prompt)
+                if re.search(pattern, child.before):
+                    found_match = True
+                    logger.debug("Found '%s' in '%s'", pattern, command)
+                    break
+                logger.debug("No match found; sleeping %d before retrying",
+                             RETRY_INTERVAL)
+                time.sleep(RETRY_INTERVAL)
             except pexpect.TIMEOUT:
-                logger.debug("Iteration '%s' out of '%s'", (attempt + 1), total)
+                logger.warning("Timed out without returning to prompt. "
+                               "The device may be in a bad state now.")
+            logger.debug("Iteration '%s' out of '%s'", (attempt + 1), total)
 
         if not found_match:
             raise Exception("No '%s' in '%s'" % (pattern, command))
