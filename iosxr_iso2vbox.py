@@ -101,7 +101,7 @@ def run(cmd, hide_error=False, cont_on_error=False):
     Allow the ability to hide errors and also to continue on errors.
     '''
     s_cmd = ' '.join(cmd)
-    logger.debug("Command: '%s'\n", s_cmd)
+    logger.debug("Command: '%s'", s_cmd)
 
     output = subprocess.Popen(cmd,
                               stdout=subprocess.PIPE,
@@ -113,8 +113,7 @@ def run(cmd, hide_error=False, cont_on_error=False):
     else:
         logger.debug('Command succeeded with code %d:', output.returncode)
 
-    logger.debug('Output for: ' + s_cmd)
-    logger.debug(tup_output[0])
+    logger.debug('Output for "%s":\n%s', s_cmd, tup_output[0])
 
     if not hide_error and 0 != output.returncode:
         logger.error('Error output for: ' + s_cmd)
@@ -269,6 +268,8 @@ def configure_xr(verbosity):
 
         # Get the image build information
         child.sendline("show version")
+        child.expect(prompt)
+        child.sendline("run cat /etc/build-info.txt")
         child.expect(prompt)
 
         # Determine if the image is a crypto/k9 image or not
