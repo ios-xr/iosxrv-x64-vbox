@@ -749,7 +749,7 @@ def main():
         sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
         from iosxr_test import main as test_main
-        test_main(box_out, args.verbose)
+        test_main(box_out, args.verbose, args.debug)
 
     logger.info('Single node use:')
     logger.info(" vagrant init 'IOS XRv'")
