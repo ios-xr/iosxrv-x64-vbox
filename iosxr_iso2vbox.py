@@ -306,7 +306,9 @@ def configure_xr(verbosity):
 
         # Bring up dhcp on MGMT for vagrant access
         child.sendline("interface MgmtEth0/RP0/CPU0/0")
+        child.expect("config-if")
         child.sendline(" ipv4 address dhcp")
+        child.expect("config-if")
         child.sendline(" no shutdown")
         child.expect("config-if")
 
@@ -327,6 +329,7 @@ def configure_xr(verbosity):
         # Configure gRPC protocol if MGBL package is available
         if mgbl:
             child.sendline("grpc")
+            child.expect("config-grpc")
             child.sendline(" port 57777")
             child.expect("config-grpc")
 
@@ -466,6 +469,15 @@ def define_vbox_vm(vmname, base_dir, input_iso):
     # Clean up existing vm's
     cleanup_vmname(vmname, delete=True)
 
+    if os.path.exists(vbox):
+        # Shouldn't happen if cleanup was successful, but be safe
+        os.remove(vbox)
+
+    vdi = os.path.join(box_dir, vmname + '.vdi')
+    if os.path.exists(vdi):
+        # Ditto failsafe
+        os.remove(vdi)
+
     # Remove stale SSH entry
     logger.debug('Removing stale SSH entries')
     run(['ssh-keygen', '-R', '[localhost]:2222'])
@@ -539,7 +551,6 @@ def define_vbox_vm(vmname, base_dir, input_iso):
 
     # Setup storage
     logger.debug('Create a HDD')
-    vdi = os.path.join(box_dir, vmname + '.vdi')
     run(['VBoxManage', 'createhd', '--filename', vdi, '--size', '46080'])
 
     logger.debug('Add IDE Controller')
