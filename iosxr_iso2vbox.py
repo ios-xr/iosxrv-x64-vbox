@@ -333,12 +333,13 @@ def configure_xr(verbosity):
             child.sendline("ssh server vrf default")
             child.expect("config")
 
-        # Configure gRPC protocol if MGBL package is available
-        if mgbl:
-            child.sendline("grpc")
-            child.expect("config-grpc")
-            child.sendline(" port 57777")
-            child.expect("config-grpc")
+        # We no longer enable gRPC by default as it consumes a large
+        # amount of memory in recent images.
+        # if mgbl:
+        #     child.sendline("grpc")
+        #     child.expect("config-grpc")
+        #     child.sendline(" port 57777")
+        #     child.expect("config-grpc")
 
         # Commit changes and end
         child.sendline("commit")

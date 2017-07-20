@@ -180,7 +180,6 @@ def test_xr():
     Verify logging into IOS XR Console directly.
     Verify show version.
     Verify show run.
-    Verify grpc is configured if a full image.
     '''
 
     if 'k9' not in input_box:
@@ -218,13 +217,15 @@ def test_xr():
             return False
         s.prompt()
 
-        if 'full' in input_box:
-            logger.debug('Check show run for grpc:')
-            s.sendline('show run grpc')
-            output = s.expect(['port 57777', pexpect.EOF, pexpect.TIMEOUT])
-            if not check_result(output, 'grpc is configured'):
-                return False
-            s.prompt()
+        # gRPC is no longer enabled by default due to increasing memory
+        # requirements. If we decide to re-enable it, here:
+        # if 'full' in input_box:
+        #     logger.debug('Check show run for grpc:')
+        #     s.sendline('show run grpc')
+        #     output = s.expect(['port 57777', pexpect.EOF, pexpect.TIMEOUT])
+        #     if not check_result(output, 'grpc is configured'):
+        #         return False
+        #     s.prompt()
 
         s.logout()
     except pxssh.ExceptionPxssh as e:
@@ -292,6 +293,9 @@ def main(vbox=None, verbosity=logging.INFO, debug=False):
         raise AbortScriptException('%s does not exist' % input_box)
 
     logger.setLevel(level=verbose)
+    # Since we are importing methods from the main iso2vbox module,
+    # ensure its logging is also set according to our preference.
+    logging.getLogger('iosxr_iso2vbox').setLevel(level=verbose)
 
     try:
         # Bring the newly generated virtualbox up
