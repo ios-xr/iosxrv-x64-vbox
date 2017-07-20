@@ -167,6 +167,35 @@ def cleanup_vmname(vmname, delete=False):
                          vmname)
             run(['VBoxManage', 'unregistervm', vmname, '--delete'])
 
+def cleanup_vdi(vdi, delete=True):
+    """Unregister and delete the given VirtualBox virtual disk."""
+    vdi_list = run(['VBoxManage', 'list', 'hdds'])
+    # Example output:
+    # UUID:           c72cca30-1c24-436e-90ac-66237700eed6
+    # Parent UUID:    base
+    # State:          inaccessible
+    # Type:           normal (base)
+    # Location:       /tmp/iosxrv-fullk9-x64.vdi
+    # Storage format: VDI
+    # Capacity:       46080 MBytes
+    # Encryption:     disabled
+
+    if vdi not in vdi_list:
+        logger.info("VDI '%s' is not currently registered. "
+                    "No cleanup needed.", vdi)
+        return
+
+    # Else, we have to get the UUID associated with this vdi file
+    pattern = (r"^UUID: *([-a-fA-F0-9]+) *$(?:\n^.+:.*$)*\n^Location: *{0}"
+               .format(vdi))
+    match = re.search(pattern, vdi_list)
+    if not match:
+        raise AbortScriptException(
+            "VDI %s is in the hdds list, but couldn't identify its UUID!")
+
+    uuid = match.group(1)
+    logger.info("Deleting stale VDI %s (UUID %s)", vdi, uuid)
+    run(['VBoxManage', 'closemedium', 'disk', uuid, '--delete'])
 
 def pause_to_debug():
     """Pause the script for manual debugging of the VM before continuing."""
@@ -473,17 +502,21 @@ def define_vbox_vm(vmname, base_dir, input_iso):
 
     vbox = os.path.join(box_dir, vmname + '.vbox')
     logger.debug('vbox:     %s', vbox)
+    vdi = os.path.join(box_dir, vmname + '.vdi')
+    logger.debug('vdi:      %s', vdi)
 
-    # Clean up existing vm's
+    # Clean up existing vm's and disks
     cleanup_vmname(vmname, delete=True)
+    cleanup_vdi(vdi, delete=True)
 
     if os.path.exists(vbox):
         # Shouldn't happen if cleanup was successful, but be safe
+        logger.warning("Stale vbox %s detected. Removing it.", vbox)
         os.remove(vbox)
 
-    vdi = os.path.join(box_dir, vmname + '.vdi')
     if os.path.exists(vdi):
         # Ditto failsafe
+        logger.warning("Stale vdi %s detected. Removing it.", vdi)
         os.remove(vdi)
 
     # Remove stale SSH entry
