@@ -109,15 +109,15 @@ def run(cmd, hide_error=False, cont_on_error=False):
     tup_output = output.communicate()
 
     if output.returncode != 0:
-        logger.debug('Command failed with code %d:', output.returncode)
+        logger.debug('Command failed with code %d', output.returncode)
     else:
-        logger.debug('Command succeeded with code %d:', output.returncode)
+        logger.debug('Command succeeded with code %d', output.returncode)
 
-    logger.debug('Output for "%s":\n%s', s_cmd, tup_output[0])
+    if tup_output[0].strip():
+        logger.debug('Output for "%s":\n%s', s_cmd, tup_output[0])
 
     if not hide_error and 0 != output.returncode:
-        logger.error('Error output for: ' + s_cmd)
-        logger.error(tup_output[1])
+        logger.error('Error output for "%s":\n%s', s_cmd, tup_output[1])
         if not cont_on_error:
             raise AbortScriptException(
                 "Command '{0}' failed with return code {1}".format(
