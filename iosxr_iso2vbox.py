@@ -228,7 +228,7 @@ def configure_xr(verbosity):
     logger.info('Logging into Vagrant Virtualbox and configuring IOS XR')
 
     localhost = 'localhost'
-    prompt = r"[$#]$"
+    prompt = r"ios[$#]$"
 
     def xr_cli_wait_for_output(command, pattern):
         """Execute a XR CLI command and try to find a pattern.
