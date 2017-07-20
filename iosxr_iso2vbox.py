@@ -402,6 +402,9 @@ def configure_xr(verbosity):
         child.expect(prompt)
         child.sendline("bash -c chown -R vagrant:vagrant ~vagrant/.ssh/")
         child.expect(prompt)
+        # Sanity check
+        child.sendline("bash -c cat ~vagrant/.ssh/authorized_keys")
+        child.expect(prompt)
 
         # Add Cisco OpenDNS IPv4 nameservers as a default DNS resolver
         # almost all users who have internet connectivity will be able to reach those.
@@ -437,6 +440,11 @@ def configure_xr(verbosity):
 
         logger.debug('Waiting 30 seconds...')
         time.sleep(30)
+
+        logger.info("Issuing shutdown command")
+        child.sendline("run shutdown -P now")
+        logger.debug('Waiting 10 seconds...')
+        time.sleep(10)
 
     except pexpect.TIMEOUT:
         raise pexpect.TIMEOUT('Timeout (%s) exceeded in read().' % str(child.timeout))
