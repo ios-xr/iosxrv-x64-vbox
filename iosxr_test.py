@@ -20,6 +20,7 @@ from pexpect import pxssh
 import subprocess
 import argparse
 import os
+import sys
 from iosxr_iso2vbox import set_logging, run, AbortScriptException
 import logging
 
@@ -179,7 +180,6 @@ def test_xr():
     Verify logging into IOS XR Console directly.
     Verify show version.
     Verify show run.
-    Verify grpc is configured if a full image.
     '''
 
     if 'k9' not in input_box:
@@ -217,13 +217,15 @@ def test_xr():
             return False
         s.prompt()
 
-        if 'full' in input_box:
-            logger.debug('Check show run for grpc:')
-            s.sendline('show run grpc')
-            output = s.expect(['port 57777', pexpect.EOF, pexpect.TIMEOUT])
-            if not check_result(output, 'grpc is configured'):
-                return False
-            s.prompt()
+        # gRPC is no longer enabled by default due to increasing memory
+        # requirements. If we decide to re-enable it, here:
+        # if 'full' in input_box:
+        #     logger.debug('Check show run for grpc:')
+        #     s.sendline('show run grpc')
+        #     output = s.expect(['port 57777', pexpect.EOF, pexpect.TIMEOUT])
+        #     if not check_result(output, 'grpc is configured'):
+        #         return False
+        #     s.prompt()
 
         s.logout()
     except pxssh.ExceptionPxssh as e:
@@ -253,11 +255,25 @@ def parse_args():
     parser.add_argument('-v', '--verbose',
                         action='store_const', const=logging.DEBUG,
                         default=logging.INFO, help='turn on verbose messages')
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help='will exit with the VM in a running state. Use: "vagrant ssh" to access.')
 
     return parser.parse_args()
 
 
-def main(vbox=None, verbosity=logging.INFO):
+def pause_to_debug():
+    """Pause the script for manual debugging of the VM before continuing."""
+    print("Pause before debug")
+    print("Use: 'vagrant ssh' to access the VM")
+    raw_input("Press Enter to continue.")
+    # To debug post box creation, add the following lines to Vagrantfile
+    # config.vm.provider "virtualbox" do |v|
+    #   v.customize ["modifyvm", :id, "--uart1", "0x3F8", 4, "--uartmode1", 'tcpserver', 65005]
+    #   v.customize ["modifyvm", :id, "--uart2", "0x2F8", 3, "--uartmode2", 'tcpserver', 65006]
+    # end
+
+
+def main(vbox=None, verbosity=logging.INFO, debug=False):
     """Main test function."""
     # Get virtualbox
     global input_box
@@ -266,6 +282,7 @@ def main(vbox=None, verbosity=logging.INFO):
     if vbox is None:
         args = parse_args()
         verbose = args.verbose
+        debug = args.debug
 
         input_box = args.BOX_FILE
     else:
@@ -276,6 +293,9 @@ def main(vbox=None, verbosity=logging.INFO):
         raise AbortScriptException('%s does not exist' % input_box)
 
     logger.setLevel(level=verbose)
+    # Since we are importing methods from the main iso2vbox module,
+    # ensure its logging is also set according to our preference.
+    logging.getLogger('iosxr_iso2vbox').setLevel(level=verbose)
 
     try:
         # Bring the newly generated virtualbox up
@@ -293,6 +313,13 @@ def main(vbox=None, verbosity=logging.INFO):
             raise AbortScriptException('Failed basic test, box is not sane')
 
         logger.info('Both IOS XR and IOS Linux test suites passed')
+    except:
+        if debug:
+            print("Exception caught:")
+            print(sys.exc_info())
+            pause_to_debug()
+        # Continue with exception handling
+        raise
     finally:
         cleanup_vagrant()
 

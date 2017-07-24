@@ -101,7 +101,7 @@ def run(cmd, hide_error=False, cont_on_error=False):
     Allow the ability to hide errors and also to continue on errors.
     '''
     s_cmd = ' '.join(cmd)
-    logger.debug("Command: '%s'\n", s_cmd)
+    logger.debug("Command: '%s'", s_cmd)
 
     output = subprocess.Popen(cmd,
                               stdout=subprocess.PIPE,
@@ -109,16 +109,15 @@ def run(cmd, hide_error=False, cont_on_error=False):
     tup_output = output.communicate()
 
     if output.returncode != 0:
-        logger.debug('Command failed with code %d:', output.returncode)
+        logger.debug('Command failed with code %d', output.returncode)
     else:
-        logger.debug('Command succeeded with code %d:', output.returncode)
+        logger.debug('Command succeeded with code %d', output.returncode)
 
-    logger.debug('Output for: ' + s_cmd)
-    logger.debug(tup_output[0])
+    if tup_output[0].strip():
+        logger.debug('Output for "%s":\n%s', s_cmd, tup_output[0])
 
     if not hide_error and 0 != output.returncode:
-        logger.error('Error output for: ' + s_cmd)
-        logger.error(tup_output[1])
+        logger.error('Error output for "%s":\n%s', s_cmd, tup_output[1])
         if not cont_on_error:
             raise AbortScriptException(
                 "Command '{0}' failed with return code {1}".format(
@@ -168,6 +167,35 @@ def cleanup_vmname(vmname, delete=False):
                          vmname)
             run(['VBoxManage', 'unregistervm', vmname, '--delete'])
 
+def cleanup_vdi(vdi, delete=True):
+    """Unregister and delete the given VirtualBox virtual disk."""
+    vdi_list = run(['VBoxManage', 'list', 'hdds'])
+    # Example output:
+    # UUID:           c72cca30-1c24-436e-90ac-66237700eed6
+    # Parent UUID:    base
+    # State:          inaccessible
+    # Type:           normal (base)
+    # Location:       /tmp/iosxrv-fullk9-x64.vdi
+    # Storage format: VDI
+    # Capacity:       46080 MBytes
+    # Encryption:     disabled
+
+    if vdi not in vdi_list:
+        logger.info("VDI '%s' is not currently registered. "
+                    "No cleanup needed.", vdi)
+        return
+
+    # Else, we have to get the UUID associated with this vdi file
+    pattern = (r"^UUID: *([-a-fA-F0-9]+) *$(?:\n^.+:.*$)*\n^Location: *{0}"
+               .format(vdi))
+    match = re.search(pattern, vdi_list)
+    if not match:
+        raise AbortScriptException(
+            "VDI %s is in the hdds list, but couldn't identify its UUID!")
+
+    uuid = match.group(1)
+    logger.info("Deleting stale VDI %s (UUID %s)", vdi, uuid)
+    run(['VBoxManage', 'closemedium', 'disk', uuid, '--delete'])
 
 def pause_to_debug():
     """Pause the script for manual debugging of the VM before continuing."""
@@ -200,7 +228,7 @@ def configure_xr(verbosity):
     logger.info('Logging into Vagrant Virtualbox and configuring IOS XR')
 
     localhost = 'localhost'
-    prompt = r"[$#]"
+    prompt = r"ios[$#]$"
 
     def xr_cli_wait_for_output(command, pattern):
         """Execute a XR CLI command and try to find a pattern.
@@ -216,12 +244,18 @@ def configure_xr(verbosity):
                 logger.debug("Looking for '%s' in output of '%s'",
                              pattern, command)
                 child.sendline(command)
-                child.expect(pattern, RETRY_INTERVAL)
-                found_match = True
-                logger.debug("Found '%s' in '%s'", pattern, command)
-                break
+                child.expect(prompt)
+                if re.search(pattern, child.before):
+                    found_match = True
+                    logger.debug("Found '%s' in '%s'", pattern, command)
+                    break
+                logger.debug("No match found; sleeping %d before retrying",
+                             RETRY_INTERVAL)
+                time.sleep(RETRY_INTERVAL)
             except pexpect.TIMEOUT:
-                logger.debug("Iteration '%s' out of '%s'", (attempt + 1), total)
+                logger.warning("Timed out without returning to prompt. "
+                               "The device may be in a bad state now.")
+            logger.debug("Iteration '%s' out of '%s'", (attempt + 1), total)
 
         if not found_match:
             raise Exception("No '%s' in '%s'" % (pattern, command))
@@ -269,6 +303,8 @@ def configure_xr(verbosity):
 
         # Get the image build information
         child.sendline("show version")
+        child.expect(prompt)
+        child.sendline("run cat /etc/build-info.txt")
         child.expect(prompt)
 
         # Determine if the image is a crypto/k9 image or not
@@ -326,12 +362,13 @@ def configure_xr(verbosity):
             child.sendline("ssh server vrf default")
             child.expect("config")
 
-        # Configure gRPC protocol if MGBL package is available
-        if mgbl:
-            child.sendline("grpc")
-            child.expect("config-grpc")
-            child.sendline(" port 57777")
-            child.expect("config-grpc")
+        # We no longer enable gRPC by default as it consumes a large
+        # amount of memory in recent images.
+        # if mgbl:
+        #     child.sendline("grpc")
+        #     child.expect("config-grpc")
+        #     child.sendline(" port 57777")
+        #     child.expect("config-grpc")
 
         # Commit changes and end
         child.sendline("commit")
@@ -364,6 +401,9 @@ def configure_xr(verbosity):
         child.sendline("bash -c chmod 0600 ~vagrant/.ssh/authorized_keys")
         child.expect(prompt)
         child.sendline("bash -c chown -R vagrant:vagrant ~vagrant/.ssh/")
+        child.expect(prompt)
+        # Sanity check
+        child.sendline("bash -c cat ~vagrant/.ssh/authorized_keys")
         child.expect(prompt)
 
         # Add Cisco OpenDNS IPv4 nameservers as a default DNS resolver
@@ -400,6 +440,11 @@ def configure_xr(verbosity):
 
         logger.debug('Waiting 30 seconds...')
         time.sleep(30)
+
+        logger.info("Issuing shutdown command")
+        child.sendline("run shutdown -P now")
+        logger.debug('Waiting 10 seconds...')
+        time.sleep(10)
 
     except pexpect.TIMEOUT:
         raise pexpect.TIMEOUT('Timeout (%s) exceeded in read().' % str(child.timeout))
@@ -465,17 +510,21 @@ def define_vbox_vm(vmname, base_dir, input_iso):
 
     vbox = os.path.join(box_dir, vmname + '.vbox')
     logger.debug('vbox:     %s', vbox)
+    vdi = os.path.join(box_dir, vmname + '.vdi')
+    logger.debug('vdi:      %s', vdi)
 
-    # Clean up existing vm's
+    # Clean up existing vm's and disks
     cleanup_vmname(vmname, delete=True)
+    cleanup_vdi(vdi, delete=True)
 
     if os.path.exists(vbox):
         # Shouldn't happen if cleanup was successful, but be safe
+        logger.warning("Stale vbox %s detected. Removing it.", vbox)
         os.remove(vbox)
 
-    vdi = os.path.join(box_dir, vmname + '.vdi')
     if os.path.exists(vdi):
         # Ditto failsafe
+        logger.warning("Stale vdi %s detected. Removing it.", vdi)
         os.remove(vdi)
 
     # Remove stale SSH entry
@@ -742,7 +791,7 @@ def main():
         sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
         from iosxr_test import main as test_main
-        test_main(box_out, args.verbose)
+        test_main(box_out, args.verbose, args.debug)
 
     logger.info('Single node use:')
     logger.info(" vagrant init 'IOS XRv'")
