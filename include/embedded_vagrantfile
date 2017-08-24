@@ -18,6 +18,8 @@ Vagrant.configure(2) do |config|
   config.vm.network :forwarded_port, guest: 57722, host: 2222, auto_correct: true
   # Port 22 is XR Console
   config.vm.network :forwarded_port, guest: 22, host: 2223, id: 'ssh', auto_correct: true
+  # Port 830 is XR NETCONF/YANG
+  config.vm.network :forwarded_port, guest: 830, host: 2224, id: 'ncy', auto_correct: true
   config.ssh.forward_agent = true
   config.ssh.guest_port = 57722
 
