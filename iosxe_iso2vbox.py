@@ -302,7 +302,15 @@ def configure_xe(verbose=False, wait=True):
         send_cmd("netconf-yang cisco-odm actions parse.showIpOspfDatabaseRouter")
         send_cmd("netconf-yang cisco-odm actions parse.showEthernetCFMstatistics")
         send_cmd("netconf-yang cisco-odm polling-enable")
+
+        # commented out temporarily
         send_cmd("netconf-yang")
+
+        # restconf
+        send_cmd("ip http server")
+        send_cmd("ip http secure-server")
+        send_cmd("restconf")
+        
         # this is not needed according to Jason
         # send_cmd("netconf ssh")
 
@@ -336,11 +344,6 @@ def configure_xe(verbose=False, wait=True):
         send_cmd("nDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXz")
         send_cmd("cWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ==")
         send_cmd("exit")
-
-        # restconf
-        send_cmd("ip http server")
-        send_cmd("ip http secure-server")
-        send_cmd("restconf")
 
         # done and save
         send_cmd("end")
@@ -501,7 +504,7 @@ def main(argv):
     # added either in the vagrant file template or in the actual file inside the
     # box (after vagrant init).
     logger.debug('Create NICs')
-    run(['VBoxManage', 'modifyvm', vmname, '--nic1', 'nat', '--nictype1', '82540EM'])
+    run(['VBoxManage', 'modifyvm', vmname, '--nic1', 'nat', '--nictype1', 'virtio'])
     run(['VBoxManage', 'modifyvm', vmname, '--cableconnected1', 'on'])
 
     # Add Serial ports
