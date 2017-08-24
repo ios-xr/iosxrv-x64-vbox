@@ -388,7 +388,7 @@ def main(argv):
     parser.add_argument('-n', '--nocolor', action='store_true',
                         help='don\'t use colors for logging')
     parser.add_argument('--virtio', action='store_true', default=False,
-                        help='set NIC type to virtio (required for IOS-XE 16.7 onwards)')
+                        help='set NIC type to virtio (only for IOS-XE 16.7 onwards)')
     parser.add_argument('-v', '--verbose',
                         action='store_const', const=logging.INFO,
                         default=logging.WARN, help='turn on verbose messages')

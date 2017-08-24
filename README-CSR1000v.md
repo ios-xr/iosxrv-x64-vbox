@@ -28,33 +28,35 @@ All contributions under this project are done so under the BSD license detailed 
 5. There are a couple of command line options that can be applied. Their purpose is mainly for troubleshooting by increasing the verbosity of the output.
 6. Full help output
 
-		(iosxe-tools) host:iosxe-tools user$ ./iosxe_iso2vbox.py --help
-		usage: iosxe_iso2vbox.py [-h] [-o] [-d] [-n] [-v] ISO_FILE
-		
-		A tool to create an IOS XE Vagrant VirtualBox box from an IOS XE ISO.
-		
-		The ISO will be installed, booted and configured.
-		
-		"vagrant ssh" provides access to the IOS XE management interface
-		with internet access. It uses the insecure Vagrant SSH key.
-		
-		positional arguments:
-		  ISO_FILE          local ISO filename or remote URI ISO filename
-		
-		optional arguments:
-		  -h, --help        show this help message and exit
-		  -o, --create_ova  additionally use VBoxManage to export an OVA
-		  -d, --debug       will exit with the VM in a running state. Use: socat
-		                    TCP:localhost:65000 -,raw,echo=0,escape=0x1d to access
-		  -n, --nocolor     don't use colors for logging
-		  -v, --verbose     turn on verbose messages
-		
-		E.g.:
-		    box build with local iso:
-		        iosxe_iso2vbox.py csr1000v-universalk9.16.03.01.iso
-		    box build with remote iso:
-		        iosxe_iso2vbox.py user@server:/myboxes/csr1000v-universalk9.16.03.01.iso
-		(iosxe-tools) host:iosxe-tools user$
+```
+$ python iosxe_iso2vbox.py --help
+usage: iosxe_iso2vbox.py [-h] [-o] [-d] [-n] [--virtio] [-v] ISO_FILE
+
+A tool to create an IOS XE Vagrant VirtualBox box from an IOS XE ISO.
+
+The ISO will be installed, booted and configured.
+
+"vagrant ssh" provides access to the IOS XE management interface
+with internet access. It uses the insecure Vagrant SSH key.
+
+positional arguments:
+  ISO_FILE          local ISO filename or remote URI ISO filename
+
+optional arguments:
+  -h, --help        show this help message and exit
+  -o, --create_ova  additionally use VBoxManage to export an OVA
+  -d, --debug       will exit with the VM in a running state. Use: socat
+                    TCP:localhost:65000 -,raw,echo=0,escape=0x1d to access
+  -n, --nocolor     don't use colors for logging
+  --virtio          set NIC type to virtio (only for IOS-XE 16.7 onwards)
+  -v, --verbose     turn on verbose messages
+
+E.g.:
+    box build with local iso:
+        iosxe_iso2vbox.py csr1000v-universalk9.16.03.01.iso
+    box build with remote iso:
+        iosxe_iso2vbox.py user@server:/myboxes/csr1000v-universalk9.16.03.01.iso
+```
 
 
 ## Vagrant Box Usage
@@ -214,6 +216,23 @@ And then SSH to the box (note that the password is 'vagrant':
 > **Note:** The SSH server for NETCONF is different from the SSH server of the IOS device and hence does not know the Vagrant insecure SSH key (e.g. the pub key has not been 'accepted' into the SSH daemon / authorized_keys). We have to use password authentication in this case unless there is a way to inject the SSH pub key into the NETCONF agent.
 
 ### Using RESTCONF
+
+#### IOS-XE 16.6.1 And Later
+
+IOS-XE 16.6.1 and later support RFC 8040-compliant RESTCONF. For example, try this command:
+
+```
+curl -k -u vagrant:vagrant \
+    -H 'Accept: application/yang-data+json' \
+    https://localhost:2224/restconf/data/native?content=config
+```
+
+The `-k` is required to address the default self-signed certificate that is created in the vagrant image. The `Accept` header shows how to extract JSON-formatted data from the image. And, finally, the URL parameter `content=config` indicates that only configuration data should be retrieved (yes, there is a matching `content=nonconfig`). Also note the use of **https**; IOS-XE 16.6.1 onwards does not support unencrypted RESTCONF traffic.
+
+Please see [RFC8040](https://tools.ietf.org/html/rfc8040) for more details.
+
+#### IOS-XE 16.5.1 And Earlier
+
 Again, using vagrant port determine the port where the RESTCONF agent is listening on (see above for the example used). The RESTCONF API entry point is at `/restconf/api`:
 
 	(iosxrv-x64-vbox) host:TEST user$ curl --user vagrant:vagrant http://localhost:2224/restconf/api
@@ -228,3 +247,4 @@ Again, using vagrant port determine the port where the RESTCONF agent is listeni
 	[...]
 
 > **Note:** The data returned by the RESTCONF agent is represented as XML. If we want it to be JSON encoded then we need to send the appropriate HTTP header. E.g. `Accept: application/vnd.yang.data+json` would have achieved JSON encoding.
+
