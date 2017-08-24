@@ -387,6 +387,8 @@ def main(argv):
                         help='will exit with the VM in a running state. Use: socat TCP:localhost:65000 -,raw,echo=0,escape=0x1d to access')
     parser.add_argument('-n', '--nocolor', action='store_true',
                         help='don\'t use colors for logging')
+    parser.add_argument('--virtio', action='store_true', default=False,
+                        help='set NIC type to virtio (required for IOS-XE 16.7 onwards)')
     parser.add_argument('-v', '--verbose',
                         action='store_const', const=logging.INFO,
                         default=logging.WARN, help='turn on verbose messages')
@@ -504,7 +506,10 @@ def main(argv):
     # added either in the vagrant file template or in the actual file inside the
     # box (after vagrant init).
     logger.debug('Create NICs')
-    run(['VBoxManage', 'modifyvm', vmname, '--nic1', 'nat', '--nictype1', 'virtio'])
+    if args.virtio==True:
+        run(['VBoxManage', 'modifyvm', vmname, '--nic1', 'nat', '--nictype1', 'virtio'])
+    else:
+        run(['VBoxManage', 'modifyvm', vmname, '--nic1', 'nat', '--nictype1', '82540EM'])
     run(['VBoxManage', 'modifyvm', vmname, '--cableconnected1', 'on'])
 
     # Add Serial ports
@@ -619,8 +624,12 @@ def main(argv):
     logger.warn('Building Vagrant box')
 
     # Add the embedded Vagrantfile
-    vagrantfile_pathname = os.path.join(
-        pathname, 'include', 'embedded_vagrantfile_xe')
+    if args.virtio==True:
+        vagrantfile_pathname = os.path.join(
+            pathname, 'include', 'embedded_vagrantfile_xe_virtio')
+    else:
+        vagrantfile_pathname = os.path.join(
+            pathname, 'include', 'embedded_vagrantfile_xe')
 
     run(['vagrant', 'package', '--base', vmname, '--vagrantfile',
          vagrantfile_pathname, '--output', box_out])

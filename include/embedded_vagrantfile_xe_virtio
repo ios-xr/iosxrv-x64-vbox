@@ -38,6 +38,8 @@ Vagrant.configure(2) do |config|
     v.customize ['modifyvm', :id, '--uart1', '0x3F8', 4, '--uartmode1', 'disconnected']
     # Optional, forward the XE auxiliary serial  port a TCP port on the host
     v.customize ['modifyvm', :id, '--uart2', '0x2F8', 3, '--uartmode2', 'disconnected']
+    # set the nic type for 16.7 onwards
+    v.customize ['modifyvm', :id, '--nictype1', 'virtio']
   end
 
   config.vm.post_up_message = "
