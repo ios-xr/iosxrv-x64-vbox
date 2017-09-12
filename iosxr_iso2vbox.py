@@ -490,7 +490,7 @@ def define_vbox_vm(vmname, base_dir, input_iso):
         logger.debug('%s is a mini image, RAM allocated is %s MB',
                      input_iso, ram)
     elif 'full' in input_iso:
-        ram = 4096
+        ram = 5120
         logger.debug('%s is a full image, RAM allocated is %s MB',
                      input_iso, ram)
     else:
