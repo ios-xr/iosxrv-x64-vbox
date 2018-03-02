@@ -303,14 +303,13 @@ def configure_xe(verbose=False, wait=True):
         send_cmd("netconf-yang cisco-odm actions parse.showEthernetCFMstatistics")
         send_cmd("netconf-yang cisco-odm polling-enable")
 
-        # commented out temporarily
         send_cmd("netconf-yang")
 
         # restconf
         send_cmd("ip http server")
         send_cmd("ip http secure-server")
         send_cmd("restconf")
-        
+
         # this is not needed according to Jason
         # send_cmd("netconf ssh")
 
@@ -506,7 +505,7 @@ def main(argv):
     # added either in the vagrant file template or in the actual file inside the
     # box (after vagrant init).
     logger.debug('Create NICs')
-    if args.virtio==True:
+    if args.virtio is True:
         run(['VBoxManage', 'modifyvm', vmname, '--nic1', 'nat', '--nictype1', 'virtio'])
     else:
         run(['VBoxManage', 'modifyvm', vmname, '--nic1', 'nat', '--nictype1', '82540EM'])
@@ -624,7 +623,7 @@ def main(argv):
     logger.warn('Building Vagrant box')
 
     # Add the embedded Vagrantfile
-    if args.virtio==True:
+    if args.virtio is True:
         vagrantfile_pathname = os.path.join(
             pathname, 'include', 'embedded_vagrantfile_xe_virtio')
     else:
