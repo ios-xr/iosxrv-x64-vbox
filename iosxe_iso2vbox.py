@@ -178,7 +178,7 @@ def run(cmd, hide_error=False, cont_on_error=False):
             logger.debug(
                 'Continuing despite error cont_on_error=%d', cont_on_error)
 
-    return tup_output[0]
+    return tup_output[0].decode()
 
 
 def cleanup_vmname(name, box_name):
@@ -269,8 +269,11 @@ def configure_xe(verbose=False, wait=True):
         send_line()
         send_cmd("term width 300")
 
-        # enable plus config mode
+        # enable plus config mode, but remember to set term len to 0
+        # first, or, as of a 16.12 IOS XE image, the config won't save
+        # properly
         send_cmd("enable")
+        send_cmd("term len 0")
         send_cmd("conf t")
 
         # no TFTP config
@@ -278,44 +281,24 @@ def configure_xe(verbose=False, wait=True):
         time.sleep(5)
         send_cmd("no service config")
 
-        # NETCONF (odm == Operational Data)
-        send_cmd("netconf-yang cisco-odm actions parse.showACL")
-        send_cmd("netconf-yang cisco-odm actions parse.showBGP")
-        send_cmd("netconf-yang cisco-odm actions parse.showArchive")
-        send_cmd("netconf-yang cisco-odm actions parse.showIpRoute")
-        send_cmd("netconf-yang cisco-odm actions parse.showInterfaces")
-        send_cmd("netconf-yang cisco-odm actions parse.showEnvironment")
-        send_cmd("netconf-yang cisco-odm actions parse.showFlowMonitor")
-        send_cmd("netconf-yang cisco-odm actions parse.showBFDneighbors")
-        send_cmd("netconf-yang cisco-odm actions parse.showBridgeDomain")
-        send_cmd("netconf-yang cisco-odm actions parse.showProcessesCPU")
-        send_cmd("netconf-yang cisco-odm actions parse.showEfpStatistics")
-        send_cmd("netconf-yang cisco-odm actions parse.showLLDPneighbors")
-        send_cmd("netconf-yang cisco-odm actions parse.showVirtualService")
-        send_cmd("netconf-yang cisco-odm actions parse.showIPslaStatistics")
-        send_cmd("netconf-yang cisco-odm actions parse.showMPLSldpNieghbor")
-        send_cmd("netconf-yang cisco-odm actions parse.showProcessesMemory")
-        send_cmd("netconf-yang cisco-odm actions parse.showMemoryStatistics")
-        send_cmd("netconf-yang cisco-odm actions parse.showPlatformSoftware")
-        send_cmd("netconf-yang cisco-odm actions parse.showMPLSstaticBinding")
-        send_cmd("netconf-yang cisco-odm actions parse.showMPLSforwardingTable")
-        send_cmd("netconf-yang cisco-odm actions parse.showIpOspfDatabaseRouter")
-        send_cmd("netconf-yang cisco-odm actions parse.showEthernetCFMstatistics")
-        send_cmd("netconf-yang cisco-odm polling-enable")
+        # configure DHCP on Gi1
+        send_cmd("interface GigabitEthernet1")
+        send_cmd("ip address dhcp")
+        send_cmd("no shutdown")
+        send_cmd("no negotiation auto")
+        send_cmd("no speed")
+        send_cmd("exit")
 
+        # restconf & netconf
         send_cmd("netconf-yang")
-
-        # restconf
         send_cmd("ip http server")
         send_cmd("ip http secure-server")
         send_cmd("restconf")
 
-        # this is not needed according to Jason
-        # send_cmd("netconf ssh")
-
         # hostname / domain-name
         send_cmd("hostname csr1kv")
-        send_cmd("ip domain-name dna.lab")
+        send_cmd("domain dna.lab")
+        send_cmd("exit")
 
         # key generation
         # send_cmd("crypto key generate rsa modulus 2048")
@@ -325,11 +308,13 @@ def configure_xe(verbose=False, wait=True):
         send_line()
         send_cmd("username vagrant priv 15 password vagrant")
         send_cmd("enable password cisco")
-        send_cmd("enable secret cisco")
+        send_cmd("enable secret cisco123")
+        send_cmd("ip ssh server algorithm authentication password publickey")
 
         # line configuration
         send_cmd("line vty 0 4")
         send_cmd("login local")
+        send_cmd("transport input ssh")
 
         # ssh vagrant insecure public key
         send_cmd("ip ssh pubkey-chain")
@@ -346,7 +331,8 @@ def configure_xe(verbose=False, wait=True):
 
         # done and save
         send_cmd("end")
-        send_cmd(["copy run start", CRLF])
+        send_cmd("wr mem")
+        # send_cmd(["copy run start", CRLF])
 
         # just to be sure
         logger.warn('Waiting 10 seconds...')
@@ -388,6 +374,8 @@ def main(argv):
                         help='don\'t use colors for logging')
     parser.add_argument('--virtio', action='store_true', default=False,
                         help='set NIC type to virtio (only for IOS-XE 16.7 onwards)')
+    parser.add_argument('--leave-uart', action='store_true', default=False,
+                        help='leave UART 1 enabled')
     parser.add_argument('-v', '--verbose',
                         action='store_const', const=logging.INFO,
                         default=logging.WARN, help='turn on verbose messages')
@@ -613,7 +601,8 @@ def main(argv):
 
     # Disable uart before exporting
     logger.debug('Remove serial uarts before exporting')
-    run(['VBoxManage', 'modifyvm', vmname, '--uart1', 'off'])
+    if not args.leave_uart:
+        run(['VBoxManage', 'modifyvm', vmname, '--uart1', 'off'])
     run(['VBoxManage', 'modifyvm', vmname, '--uart2', 'off'])
 
     # Shrink the VM
