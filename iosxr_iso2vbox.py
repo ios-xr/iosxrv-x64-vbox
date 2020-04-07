@@ -432,12 +432,12 @@ def configure_xr(verbosity):
         if crypto:
             child.sendline("crypto key generate rsa")
             index = child.expect(["How many bits in the modulus", "really want to replace"])
-            if index == 0:
-                child.sendline("2048")  # Send enter to get default 2048
-                child.expect(prompt)  # Wait for the prompt
-            if index == 1:
-                child.sendline("no")
-                child.expect(prompt)  # Wait for the prompt
+        if index == 0:
+            child.sendline("2048")  # Send enter to get default 2048
+            child.expect(prompt)  # Wait for the prompt
+        if index == 1:
+            child.sendline("no")
+            child.expect(prompt)  # Wait for the prompt
 
         # Final check to make sure MGMT stayed up
         xr_cli_wait_for_output('show ipv4 interface MgmtEth0/RP0/CPU0/0', '10.0.2.15')
