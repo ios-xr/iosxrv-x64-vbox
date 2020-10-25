@@ -65,7 +65,10 @@ import argparse
 import re
 import logging
 from logging import StreamHandler
+from whichcraft import which
 import textwrap
+import tempfile
+import pexpect.exceptions
 
 try:
     import pexpect
@@ -250,7 +253,8 @@ def configure_xe(verbose=False, wait=True):
         child.expect(PROMPT)
 
     try:
-        child = pexpect.spawn("socat TCP:%s:%s -,raw,echo=0,escape=0x1d" % (localhost, CONSOLE_PORT))
+        # child = pexpect.spawn("socat TCP:%s:%s -,raw,echo=0,escape=0x1d" % (localhost, CONSOLE_PORT))
+        child = pexpect.spawn("telnet %s %s" % (localhost, CONSOLE_PORT))
 
         if verbose:
             child.logfile = open("tmp.log", "w")
@@ -260,20 +264,21 @@ def configure_xe(verbose=False, wait=True):
 
         # wait for indication that boot has gone through
         if (wait):
-            child.expect(r'CRYPTO-6-GDOI_ON_OFF: GDOI is OFF', child.timeout)
+            child.expect(r'Press RETURN to get started!', child.timeout)
+            # child.expect(r'CRYPTO-6-GDOI_ON_OFF: GDOI is OFF', child.timeout)
             logger.warn(
                 'Logging into Vagrant Virtualbox and configuring IOS XE')
 
         send_line()
         time.sleep(5)
         send_line()
-        send_cmd("term width 300")
 
         # enable plus config mode, but remember to set term len to 0
         # first, or, as of a 16.12 IOS XE image, the config won't save
         # properly
         send_cmd("enable")
         send_cmd("term len 0")
+        send_cmd("term width 300")
         send_cmd("conf t")
 
         # no TFTP config
@@ -342,6 +347,195 @@ def configure_xe(verbose=False, wait=True):
         raise pexpect.TIMEOUT('Timeout (%s) exceeded in read().' % str(child.timeout))
 
 
+def configure_wait_only(verbose=False, wait=True):
+    """
+    Bring up virtual image with the assumption that config is provided by
+    other means, namely a config ISO, and this routine only has to wait
+    for that.
+    """
+
+    logger.warn('Waiting for IOS XE to boot (may take 3 minutes or so)')
+    localhost = 'localhost'
+
+    PROMPT = r'[\w-]+(\([\w-]+\))?[#>]'
+    # don't want to rely on specific hostname
+    # PROMPT = r'(Router|csr1kv).*[#>]'
+    CRLF = "\r\n"
+
+    def send_line(line=CRLF):
+        child.sendline(line)
+        if line != CRLF:
+            logger.info('IOS Config: %s' % line)
+            child.expect(re.escape(line))
+
+    def send_cmd(cmd):
+        if not isinstance(cmd, list):
+            cmd = list((cmd,))
+        for c in cmd:
+            send_line(c)
+        child.expect(PROMPT)
+
+    try:
+        # child = pexpect.spawn("socat TCP:%s:%s -,raw,echo=0,escape=0x1d" % (localhost, CONSOLE_PORT))
+        child = pexpect.spawn("telnet %s %s" % (localhost, CONSOLE_PORT))
+
+        if verbose:
+            child.logfile = open("tmp.log", "w")
+
+        # Long time for full configuration, waiting for ip address etc
+        child.timeout = 600
+
+        # wait for indication that boot has gone through
+        if (wait):
+            child.expect(r'Press RETURN to get started!', child.timeout)
+
+        time.sleep(10)
+
+    except pexpect.TIMEOUT:
+        raise pexpect.TIMEOUT('Timeout (%s) exceeded in read().' % str(child.timeout))
+
+
+def configure_c8000v(verbose=False, wait=True):
+    """
+    Bring up Catalyst 8000v  and do some initial config.
+    Using socat to do the connection as telnet has an
+    odd double return on vbox
+    """
+
+    logger.warn('Waiting for IOS XE to boot (may take 3 minutes or so)')
+    localhost = 'localhost'
+
+    PROMPT = r'[\w-]+(\([\w-]+\))?[#>]'
+    # don't want to rely on specific hostname
+    # PROMPT = r'(Router|csr1kv).*[#>]'
+    CRLF = "\r\n"
+
+    def send_line(line=CRLF):
+        child.sendline(line)
+        if line != CRLF:
+            logger.info('IOS Config: %s' % line)
+            child.expect(re.escape(line))
+
+    def send_cmd(cmd):
+        if not isinstance(cmd, list):
+            cmd = list((cmd,))
+        for c in cmd:
+            send_line(c)
+        child.expect(PROMPT)
+
+    try:
+        # child = pexpect.spawn("socat TCP:%s:%s -,raw,echo=0,escape=0x1d" % (localhost, CONSOLE_PORT))
+        child = pexpect.spawn("telnet %s %s" % (localhost, CONSOLE_PORT))
+
+        if verbose:
+            child.logfile = open("tmp.log", "w")
+
+        # Long time for full configuration, waiting for ip address etc
+        child.timeout = 600
+
+        # wait for indication that boot has gone through
+        if (wait):
+            child.expect(r'Autoinstall will terminate if any input is detected on console', child.timeout)
+            send_line()
+            send_line()
+
+            child.expect(r'Would you like to terminate autoinstall', child.timeout)
+            send_cmd('yes')
+
+            child.expect(r'OK to enter CLI now', child.timeout)
+            send_line()
+
+            time.sleep(5)
+
+            # child.expect(r'Press RETURN to get started!', child.timeout)
+
+            # original csr1kv
+            # child.expect(r'CRYPTO-6-GDOI_ON_OFF: GDOI is OFF', child.timeout)
+            logger.warn(
+                'Logging into Vagrant Virtualbox and configuring IOS XE')
+
+        send_line()
+        time.sleep(5)
+        send_line()
+
+        # enable plus config mode, but remember to set term len to 0
+        # first, or, as of a 16.12 IOS XE image, the config won't save
+        # properly
+        send_cmd("enable")
+        send_cmd("term len 0")
+        send_cmd("term width 300")
+        send_cmd("conf t")
+
+        # no TFTP config
+        send_cmd("no logging console")
+        time.sleep(5)
+        send_cmd("no service config")
+
+        # hostname / domain-name
+        send_cmd("hostname c8kv")
+        send_cmd("ip domain name example.net")
+        # send_cmd("exit")
+
+        # key generation
+        # send_cmd("crypto key generate rsa modulus 2048")
+        # time.sleep(5)
+
+        # sshg setup
+        send_line()
+        send_cmd("ip ssh server algorithm authentication password publickey")
+
+        # line configuration
+        send_cmd("line vty 0 4")
+        send_cmd("login local")
+        send_cmd("transport input ssh")
+        send_cmd("exit")
+
+        # ssh vagrant insecure public key
+        send_cmd("ip ssh pubkey-chain")
+        send_cmd("username vagrant")
+        send_cmd("key-string")
+        send_cmd("AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eW")
+        send_cmd("W6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o")
+        send_cmd("9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXP")
+        send_cmd("ITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pz")
+        send_cmd("C6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZE")
+        send_cmd("nDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXz")
+        send_cmd("cWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ==")
+        send_cmd("exit")
+
+        # configure DHCP on Gi1
+        send_cmd("interface GigabitEthernet1")
+        send_cmd("ip address dhcp")
+        send_cmd("no shutdown")
+        send_cmd("no negotiation auto")
+        send_cmd("no speed")
+        send_cmd("exit")
+
+        # restconf & netconf
+        send_cmd("netconf-yang")
+        send_cmd("ip http server")
+        send_cmd("ip http secure-server")
+        send_cmd("restconf")
+
+        # password setup
+        send_cmd("username vagrant privilege 15 password vagrant")
+        send_cmd("username cisco privilege 15 password cisco")
+        send_cmd("enable password cisco")
+        send_cmd("enable secret cisco123")
+
+        # done and save
+        send_cmd("end")
+        send_cmd("wr mem")
+        # send_cmd(["copy run start", CRLF])
+
+        # just to be sure
+        logger.warn('Waiting 10 seconds...')
+        time.sleep(10)
+
+    except pexpect.TIMEOUT:
+        raise pexpect.TIMEOUT('Timeout (%s) exceeded in read().' % str(child.timeout))
+
+
 def main(argv):
     input_iso = ''
 
@@ -366,6 +560,12 @@ def main(argv):
 
     parser.add_argument('ISO_FILE',
                         help='local ISO filename or remote URI ISO filename')
+    parser.add_argument('--config-file', type=str,
+                        help='provide a configuration file rather than built-in config')
+    parser.add_argument('--platform', type=str, default='csr',
+                        help='platform to determine CLI')
+    parser.add_argument('--ram', type=int, default=8,
+                        help='GB of RAM to configure')
     parser.add_argument('-o', '--create_ova', action='store_true',
                         help='additionally use VBoxManage to export an OVA')
     parser.add_argument('-d', '--debug', action='store_true',
@@ -381,6 +581,11 @@ def main(argv):
                         default=logging.WARN, help='turn on verbose messages')
     args = parser.parse_args()
 
+    # check valid platforms
+    valid_platforms = ['csr', 'c8kv']
+    if args.platform not in valid_platforms:
+        sys.exit('Invalid platform \'{}\''.format(args.platform))
+
     # setup logging
     root_logger = logging.getLogger()
     root_logger.setLevel(level=args.verbose)
@@ -391,12 +596,22 @@ def main(argv):
     logger = logging.getLogger("box-builder")
 
     # PRE-CHECK: is socat installed?
-    logger.warn('Check whether "socat" is installed')
-    try:
-        run(['socat', '-V'])
-    except OSError:
+    # logger.warn('Check whether "socat" is installed')
+    # if not which('socat'):
+    #     sys.exit(
+    #         'The "socat" utility is not installed. Please install it prior to using this script.')
+
+    # PRE-CHECK: is telnet installed?
+    logger.warn('Check whether "telnet" is installed')
+    if not which('telnet'):
         sys.exit(
-            'The "socat" utility is not installed. Please install it prior to using this script.')
+            'The "telnet" utility is not installed. Please install it prior to using this script.')
+
+    # PRE-CHECK: is mkisofs installed?
+    logger.warn('Check whether "mkisofs" is installed if we need it')
+    if args.config_file and not which('mkisofs'):
+        sys.exit(
+            'The "telnet" utility is not installed. Please install it prior to using this script.')
 
     # Handle Input ISO (Local or URI)
     if re.search(':/', args.ISO_FILE):
@@ -417,12 +632,15 @@ def main(argv):
     if not os.path.exists(input_iso):
         sys.exit('%s does not exist' % input_iso)
 
+    if args.config_file and (not os.path.exists(args.config_file)):
+        sys.exit('%s does not exist' % args.config_file)
+
     # Set Virtualbox VM name from the input ISO
     vmname = os.path.basename(os.path.splitext(input_iso)[0])
     logger.warn('Input ISO is %s', input_iso)
 
     # playing it safe, should be OK in 3G / 3072
-    ram = 4096
+    ram = int(args.ram * 1024)
     logger.warn('Creating VirtualBox VM')
 
     version = run(['VBoxManage', '-v'])
@@ -551,7 +769,19 @@ def main(argv):
 
     logger.debug('Add DVD drive')
     run(['VBoxManage', 'storageattach', vmname, '--storagectl', 'IDE_Controller',
-         '--port', '1', '--device', '0', '--type', 'dvddrive', '--medium', input_iso])
+         '--port', '0', '--device', '1', '--type', 'dvddrive', '--medium', input_iso])
+
+    if args.config_file:
+        logger.debug('Creating and configuring config ISO')
+        config_iso_dir = tempfile.gettempdir()
+        config_iso_fname = os.path.join(config_iso_dir, 'csr_config.iso')
+        run(['mkisofs', '-l', '-o', config_iso_fname, args.config_file])
+        run(['VBoxManage', 'storageattach', vmname,
+             '--storagectl', 'IDE_Controller',
+             '--port', '1',
+             '--device', '0',
+             '--type', 'dvddrive',
+             '--medium', config_iso_fname])
 
     # Change boot order to hd then dvd
     logger.debug('Boot order disk first')
@@ -574,11 +804,33 @@ def main(argv):
             time.sleep(5)
             continue
 
+    # Good place to stop and take a look if --debug was entered
+    if args.debug:
+        pause_to_debug()
+
     # Configure IOS XE
+    #
     # do print steps for logging set to DEBUG and INFO
     # DEBUG also prints the I/O with the device on the console
     # default is WARN
-    configure_xe(args.verbose < logging.WARN)
+    #
+    # A "config ISO" is created using a command like this:
+    #
+    #     mkisofs -l -o csr_config.iso iosxe_config.txt
+    #
+    try:
+        if args.config_file:
+            configure_wait_only(args.verbose < logging.WARN)
+        elif args.platform == 'c8kv':
+            configure_c8000v(args.verbose < logging.WARN)
+        else:
+            configure_xe(args.verbose < logging.WARN)
+    except pexpect.exceptions.TIMEOUT as e:
+        logger.error('Failed to apply config to XE!!')
+        logger.warn('Waiting for machine to shutdown')
+        run(['VBoxManage', 'controlvm', vmname, 'poweroff'])
+        cleanup_vmname(vmname, vbox)
+        return
 
     # Good place to stop and take a look if --debug was entered
     if args.debug:
