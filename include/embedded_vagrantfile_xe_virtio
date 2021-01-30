@@ -11,38 +11,45 @@
 Vagrant.configure(2) do |config|
   config.vm.synced_folder '.', '/vagrant', disabled: true
 
-  # Give IOS XRv (64-bit) 400 seconds to come up
+  # Give IOS XE 400 seconds to come up
   config.vm.boot_timeout = 400
 
-  # Port 57722 is XR linux (sshd_operns)
-  config.vm.network :forwarded_port, guest: 57722, host: 2222, auto_correct: true
-  # Port 22 is XR Console
-  config.vm.network :forwarded_port, guest: 22, host: 2223, id: 'ssh', auto_correct: true
-  # Port 830 is XR NETCONF/YANG
-  config.vm.network :forwarded_port, guest: 830, host: 2224, id: 'ncy', auto_correct: true
+  # Port 830 is XE NETCONF
+  config.vm.network :forwarded_port, guest: 830, host: 2223, id: 'netconf', auto_correct: true
+  # Port 80 is XE RESTCONF
+  config.vm.network :forwarded_port, guest: 80, host: 2224, id: 'restconf', auto_correct: true
+  # Port 443 is XE RESTCONF / SSL
+  config.vm.network :forwarded_port, guest: 443, host: 2225, id: 'restconf-ssl', auto_correct: true
+  # Port 8443 is XE IOx
+  config.vm.network :forwarded_port, guest: 8443, host: 2226, id: 'iox', auto_correct: true
   config.ssh.forward_agent = true
-  config.ssh.guest_port = 57722
+  config.ssh.guest_port = 22
+  config.ssh.insert_key = false
+  config.vm.guest = :other
+
+  # turn off the check if the plugin is installed
+  if Vagrant.has_plugin?("vagrant-vbguest")
+    config.vbguest.auto_update = false  
+  end
 
   # Avoid serial port conflicts
   config.vm.provider 'virtualbox' do |v|
-    # Optional, forward the XR console serial port a TCP port on the host
+    # Optional, forward the XE console serial port a TCP port on the host
     v.customize ['modifyvm', :id, '--uart1', '0x3F8', 4, '--uartmode1', 'disconnected']
-    # Optional, forward the XR auxiliary serial  port a TCP port on the host
+    # Optional, forward the XE auxiliary serial  port a TCP port on the host
     v.customize ['modifyvm', :id, '--uart2', '0x2F8', 3, '--uartmode2', 'disconnected']
+    # set the nic type for 16.7 onwards
+    v.customize ['modifyvm', :id, '--nictype1', 'virtio']
   end
 
-  # Ping to test connection to outside world, using DOGFOOD as a marker
-  config.vm.provision :shell, :inline => '/bin/ping -c 1 -p C15C0D06F00D cisco.com &> /dev/null && echo online >> /tmp/state.txt || echo offline >> /tmp/state.txt'
-
-  # A nslookup to register with opendns - this will fail as it's a dummy domain but will be markable
-  config.vm.provision :shell, :inline => "nslookup #{SecureRandom.uuid}.iosxrv-x64.cisco.com 208.67.222.222 &>> /dev/null && echo nslookup_s >> /tmp/state.txt || echo nslookup_f >> /tmp/state.txt"
-
   config.vm.post_up_message = "
-    Welcome to the IOS XRv (64-bit) VirtualBox.
-    To connect to the XR Linux shell, use: 'vagrant ssh'.
-    To ssh to the XR Console, use: 'vagrant port' (vagrant version > 1.8)
-    to determine the port that maps to guestport 22,
-    then: 'ssh vagrant@localhost -p <forwarded port>'
+    Welcome to the IOS XE VirtualBox.
+    To connect to the XE via ssh, use: 'vagrant ssh'.
+    To ssh to XE's NETCONF or RESTCONF agent, use: 
+    'vagrant port' (vagrant version > 1.8)
+    to determine the port that maps to the guestport,
+
+    The password for the vagrant user is vagrant
 
     IMPORTANT:  READ CAREFULLY
     The Software is subject to and governed by the terms and conditions
