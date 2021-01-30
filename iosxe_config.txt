@@ -1,0 +1,31 @@
+no logging console
+no service config
+hostname c8kv
+username vagrant privilege 15 password vagrant
+enable password cisco
+enable secret cisco123
+ip ssh server algorithm authentication password publickey
+ip ssh pubkey-chain
+ username vagrant
+  key-string
+   AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eW
+   W6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o
+   9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXP
+   ITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pz
+   C6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZE
+   nDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXz
+   cWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ==
+exit
+interface GigabitEthernet1
+ description Gi1
+ ip address dhcp
+ no shutdown
+ no negotiation auto
+ no speed
+netconf-yang
+ip http server
+ip http secure-server
+restconf
+line vty 0 4
+ login local
+ transport input ssh
