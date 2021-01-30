@@ -394,7 +394,7 @@ def configure_wait_only(verbose=False, wait=True):
         send_line()
         send_line()
         time.sleep(60)
-        
+
     except pexpect.TIMEOUT:
         raise pexpect.TIMEOUT('Timeout (%s) exceeded in read().' % str(child.timeout))
 
@@ -814,34 +814,31 @@ def main(argv):
     # Good place to stop and take a look if --debug was entered
     if args.debug:
         pause_to_debug()
-    else:
-        # Configure IOS XE
-        #
-        # do print steps for logging set to DEBUG and INFO
-        # DEBUG also prints the I/O with the device on the console
-        # default is WARN
-        #
-        # A "config ISO" is created using a command like this:
-        #
-        #     mkisofs -l -o csr_config.iso iosxe_config.txt
-        #
-        try:
-            if args.config_file:
-                configure_wait_only(args.verbose < logging.WARN)
-            elif args.platform == 'c8kv':
-                configure_c8000v(args.verbose < logging.WARN)
-            else:
-                configure_xe(args.verbose < logging.WARN)
-        except pexpect.exceptions.TIMEOUT as e:
-            logger.error('Failed to apply config to XE!!')
-            logger.warn('Waiting for machine to shutdown')
-            run(['VBoxManage', 'controlvm', vmname, 'poweroff'])
-            cleanup_vmname(vmname, vbox)
-            return
 
-    # Good place to stop and take a look if --debug was entered
-    # if args.debug:
-    #     pause_to_debug()
+    # Configure IOS XE
+    #
+    # do print steps for logging set to DEBUG and INFO
+    # DEBUG also prints the I/O with the device on the console
+    # default is WARN
+    #
+    # A "config ISO" is created using a command like this:
+    #
+    #     mkisofs -l -o csr_config.iso iosxe_config.txt
+    #
+    try:
+        if args.config_file:
+            configure_wait_only(args.verbose < logging.WARN)
+        elif args.platform == 'c8kv':
+            configure_c8000v(args.verbose < logging.WARN)
+        else:
+            configure_xe(args.verbose < logging.WARN)
+    except pexpect.exceptions.TIMEOUT as e:
+        logger.error('Failed to apply config to XE!!')
+        logger.warn('Waiting for machine to shutdown')
+        run(['VBoxManage', 'controlvm', vmname, 'poweroff'])
+        cleanup_vmname(vmname, vbox)
+        return
+
 
     logger.warn('Powering down and generating Vagrant VirtualBox')
 
